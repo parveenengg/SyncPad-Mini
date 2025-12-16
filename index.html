@@ -9,10 +9,117 @@
 </head>
 
 <body>
+    <!-- Mobile UI Elements (Global) -->
+    <div class="mobile-top-bar mobile-only">
+        <button class="icon-btn" onclick="goBack()" title="Back">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+        </button>
+        <div class="mobile-actions">
+            <!-- Undo/Redo -->
+            <button class="icon-btn" onclick="undo()" title="Undo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v6h6"></path>
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                </svg>
+            </button>
+            <button class="icon-btn" onclick="redo()" title="Redo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 7v6h-6"></path>
+                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path>
+                </svg>
+            </button>
+            <!-- Format "A" -->
+            <button class="icon-btn" onclick="openStyleMenu()" title="Format">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 7V4h16v3"></path>
+                    <path d="M9 20h6"></path>
+                    <path d="M12 4v16"></path>
+                </svg>
+            </button>
+            <!-- Insert "+" -->
+            <button class="icon-btn" onclick="openInsertMenu()" title="Insert">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+            <button class="icon-btn" onclick="openMoreMenu()" title="More">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="12" cy="5" r="1"></circle>
+                    <circle cx="12" cy="19" r="1"></circle>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="mobile-bottom-bar mobile-only">
+        <div class="mobile-font-toggles">
+            <button class="icon-btn" onclick="toggleFormat('bold')" id="boldBtnMobile">
+                <b>B</b>
+            </button>
+            <button class="icon-btn" onclick="toggleFormat('italic')" id="italicBtnMobile">
+                <i>I</i>
+            </button>
+            <button class="icon-btn" onclick="toggleFormat('underline')" id="underlineBtnMobile">
+                <u>U</u>
+            </button>
+            <button class="icon-btn" onclick="openColorPicker()" id="colorBtnMobile">
+                <span style="color: var(--accent-color); font-weight: bold;">A</span>
+            </button>
+            <button class="icon-btn" onclick="toggleAlignment()" id="alignBtnMobile">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="21" y1="10" x2="3" y2="10"></line>
+                    <line x1="21" y1="6" x2="3" y2="6"></line>
+                    <line x1="21" y1="14" x2="3" y2="14"></line>
+                    <line x1="21" y1="18" x2="3" y2="18"></line>
+                </svg>
+            </button>
+            <button class="icon-btn" onclick="document.execCommand('insertUnorderedList')" title="Bullets">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Modals -->
+    <div id="insertMenuModal" class="mobile-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-item" onclick="insertLink()">Link</div>
+            <div class="modal-item" onclick="insertImage()">Image</div>
+            <div class="modal-item" onclick="insertTable()">Table</div>
+            <div class="modal-item" onclick="insertHorizontalLine()">Horizontal Line</div>
+            <div class="modal-item" onclick="insertPageBreak()">Page Break</div>
+            <div class="modal-item" onclick="insertPageNumber()">Page Number</div>
+            <div class="modal-item" onclick="closeInsertMenu()">Cancel</div>
+        </div>
+    </div>
+
+    <div id="styleMenuModal" class="mobile-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Style</h3>
+            <div class="modal-item" onclick="formatBlock('P')">Normal Text</div>
+            <div class="modal-item" onclick="formatBlock('H1')">Title</div>
+            <div class="modal-item" onclick="formatBlock('H2')">Subtitle</div>
+            <div class="modal-item" onclick="formatBlock('H3')">Heading 1</div>
+            <div class="modal-item" onclick="formatBlock('H4')">Heading 2</div>
+            <div class="modal-item" onclick="closeStyleMenu()">Cancel</div>
+        </div>
+    </div>
+
     <!-- Home Page -->
     <div id="homePage">
         <!-- Navbar -->
-        <nav class="navbar">
+        <nav class="navbar desktop-only">
             <div class="navbar-left">
                 <a href="https://github.com/parveenengg" target="_blank" rel="noopener noreferrer" class="nav-link">
                     <span class="nav-icon">🔗</span>
@@ -249,169 +356,171 @@
                     </div>
                     <p class="your-color-indicator">Your color: <span id="currentUserColor"
                             style="font-weight: bold;"></span></p>
-                </div>
-            </div>
+                    <div class="collab-editor-wrapper">
+                        <!-- Menu Bar (Desktop) -->
+                        <div class="menu-bar desktop-only">
+                            <div class="mode-toggle">
+                                <button class="mode-btn active" onclick="switchMode('text', this)">Text</button>
+                                <button class="mode-btn" onclick="switchMode('draw', this)">Canvas</button>
+                            </div>
 
-            <!-- Right Side: A4 Editor -->
-            <div class="collab-editor-wrapper">
-                <!-- Menu Bar -->
-                <div class="menu-bar">
-                    <div class="mode-toggle">
-                        <button class="mode-btn active" onclick="switchMode('text', this)">Text</button>
-                        <button class="mode-btn" onclick="switchMode('draw', this)">Canvas</button>
-                    </div>
+                            <div class="menu-separator"></div>
 
-                    <div class="menu-separator"></div>
+                            <!-- Action Buttons -->
+                            <button class="icon-btn" onclick="downloadPDF()" title="Download PDF">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" onclick="clearContent()" title="Clear Page">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path
+                                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                    </path>
+                                </svg>
+                            </button>
 
-                    <!-- Action Buttons -->
-                    <button class="icon-btn" onclick="downloadPDF()" title="Download PDF">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                    </button>
-                    <button class="icon-btn" onclick="clearContent()" title="Clear Page">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                            </path>
-                        </svg>
-                    </button>
+                            <div class="menu-separator"></div>
 
-                    <div class="menu-separator"></div>
+                            <!-- Desktop Text Controls -->
+                            <div class="shape-tools text-control">
+                                <button class="icon-btn shape-btn" onclick="selectDrawTool('freehand')"
+                                    title="Draw Object">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn shape-btn" onclick="selectDrawTool('rectangle')"
+                                    title="Rectangle Object">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn shape-btn" onclick="selectDrawTool('circle')"
+                                    title="Circle Object">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <circle cx="12" cy="12" r="9" />
+                                    </svg>
+                                </button>
+                            </div>
 
-                    <!-- Shape Tools (Text Mode - Drawing Objects) -->
-                    <div class="shape-tools text-control">
-                        <button class="icon-btn shape-btn" onclick="selectDrawTool('freehand')" title="Draw Object">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn shape-btn" onclick="selectDrawTool('rectangle')"
-                            title="Rectangle Object">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn shape-btn" onclick="selectDrawTool('circle')" title="Circle Object">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <circle cx="12" cy="12" r="9" />
-                            </svg>
-                        </button>
-                    </div>
+                            <div class="shape-tools draw-control" style="display: none;">
+                                <button class="icon-btn shape-btn active" id="freehandBtnCanvasCollab"
+                                    onclick="selectDrawTool('freehand')" title="Freehand">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                    </svg>
+                                </button>
+                            </div>
 
-                    <div class="shape-tools draw-control" style="display: none;">
-                        <button class="icon-btn shape-btn active" id="freehandBtnCanvasCollab"
-                            onclick="selectDrawTool('freehand')" title="Freehand">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                            </svg>
-                        </button>
-                    </div>
+                            <div class="menu-separator draw-control" style="display: none;"></div>
 
-                    <div class="menu-separator draw-control" style="display: none;"></div>
+                            <!-- Font Size Controls -->
+                            <div class="font-size-control text-control">
+                                <button class="icon-btn" onclick="changeFontSize(-1)">−</button>
+                                <span class="font-size-display" id="fontSizeDisplayCollab"
+                                    onclick="showFontSizePicker()">14</span>
+                                <button class="icon-btn" onclick="changeFontSize(1)">+</button>
+                            </div>
 
-                    <!-- Font Size Controls -->
-                    <div class="font-size-control text-control">
-                        <button class="icon-btn" onclick="changeFontSize(-1)">−</button>
-                        <span class="font-size-display" id="fontSizeDisplayCollab"
-                            onclick="showFontSizePicker()">14</span>
-                        <button class="icon-btn" onclick="changeFontSize(1)">+</button>
-                    </div>
+                            <select class="menu-select text-control" id="fontFamilyCollab" onchange="applyFormatting()">
+                                <option value="'Times New Roman', serif">Times New Roman</option>
+                                <option value="'Inter', sans-serif">Inter</option>
+                                <option value="'Arial', sans-serif">Arial</option>
+                            </select>
 
-                    <select class="menu-select text-control" id="fontFamilyCollab" onchange="applyFormatting()">
-                        <option value="'Times New Roman', serif">Times New Roman</option>
-                        <option value="'Inter', sans-serif">Inter</option>
-                        <option value="'Arial', sans-serif">Arial</option>
-                    </select>
+                            <div class="menu-separator"></div>
 
-                    <div class="menu-separator"></div>
+                            <!-- Text Formatting Buttons -->
+                            <button class="icon-btn format-btn text-control" id="boldBtnCollab"
+                                onclick="toggleFormat('bold')">B</button>
+                            <button class="icon-btn format-btn text-control" id="italicBtnCollab"
+                                onclick="toggleFormat('italic')">I</button>
+                            <button class="icon-btn format-btn text-control" id="underlineBtnCollab"
+                                onclick="toggleFormat('underline')">U</button>
 
-                    <!-- Text Formatting Buttons -->
-                    <button class="icon-btn format-btn text-control" id="boldBtnCollab"
-                        onclick="toggleFormat('bold')">B</button>
-                    <button class="icon-btn format-btn text-control" id="italicBtnCollab"
-                        onclick="toggleFormat('italic')">I</button>
-                    <button class="icon-btn format-btn text-control" id="underlineBtnCollab"
-                        onclick="toggleFormat('underline')">U</button>
+                            <div class="menu-separator"></div>
 
-                    <div class="menu-separator"></div>
+                            <!-- Stroke Size Control -->
+                            <div class="stroke-size-control draw-control" style="display: none;">
+                                <button class="icon-btn" onclick="changeStrokeSize(-1)">−</button>
+                                <span class="stroke-size-display" id="strokeSizeDisplayCollab">3</span>
+                                <button class="icon-btn" onclick="changeStrokeSize(1)">+</button>
+                            </div>
 
-                    <!-- Stroke Size Control -->
-                    <div class="stroke-size-control draw-control" style="display: none;">
-                        <button class="icon-btn" onclick="changeStrokeSize(-1)">−</button>
-                        <span class="stroke-size-display" id="strokeSizeDisplayCollab">3</span>
-                        <button class="icon-btn" onclick="changeStrokeSize(1)">+</button>
-                    </div>
+                            <!-- Color Picker -->
+                            <div class="color-picker">
+                                <button class="color-circle" data-color="black" onclick="selectColor('black')"
+                                    style="background: black;"></button>
+                                <button class="color-circle" data-color="red" onclick="selectColor('red')"
+                                    style="background: red;"></button>
+                                <button class="color-circle" data-color="blue" onclick="selectColor('blue')"
+                                    style="background: blue;"></button>
+                                <button class="color-circle" data-color="green" onclick="selectColor('green')"
+                                    style="background: green;"></button>
+                            </div>
 
-                    <!-- Color Picker -->
-                    <div class="color-picker">
-                        <button class="color-circle" data-color="black" onclick="selectColor('black')"
-                            style="background: black;"></button>
-                        <button class="color-circle" data-color="red" onclick="selectColor('red')"
-                            style="background: red;"></button>
-                        <button class="color-circle" data-color="blue" onclick="selectColor('blue')"
-                            style="background: blue;"></button>
-                        <button class="color-circle" data-color="green" onclick="selectColor('green')"
-                            style="background: green;"></button>
-                    </div>
+                            <div class="menu-separator"></div>
 
-                    <div class="menu-separator"></div>
+                            <!-- Alignment Buttons -->
+                            <div class="align-controls text-control">
+                                <button class="icon-btn align-btn active" id="alignLeftCollab"
+                                    onclick="setAlignment('left')">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M2 3h12M2 6h12M2 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn align-btn" id="alignCenterCollab"
+                                    onclick="setAlignment('center')">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M2 3h12M4 6h8M2 9h12M4 12h8" stroke="#5f6368" stroke-width="1.5"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                </button>
+                                <button class="icon-btn align-btn" id="alignRightCollab"
+                                    onclick="setAlignment('right')">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M2 3h12M2 6h12M6 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
 
-                    <!-- Alignment Buttons -->
-                    <div class="align-controls text-control">
-                        <button class="icon-btn align-btn active" id="alignLeftCollab" onclick="setAlignment('left')">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 3h12M2 6h12M2 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                                    stroke-linecap="round" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn align-btn" id="alignCenterCollab" onclick="setAlignment('center')">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 3h12M4 6h8M2 9h12M4 12h8" stroke="#5f6368" stroke-width="1.5"
-                                    stroke-linecap="round" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn align-btn" id="alignRightCollab" onclick="setAlignment('right')">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 3h12M2 6h12M6 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                                    stroke-linecap="round" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
+                        <div class="container">
+                            <div class="page-wrapper">
+                                <div id="textEditorCollab" contenteditable="true" class="text-editor a4-page"
+                                    spellcheck="false"></div>
 
-                <div class="container">
-                    <div class="page-wrapper">
-                        <div id="textEditorCollab" contenteditable="true" class="text-editor a4-page"
-                            spellcheck="false"></div>
-
-                        <div id="canvasContainerCollab" style="display: none;">
-                            <canvas id="drawingCanvasCollab"></canvas>
+                                <div id="canvasContainerCollab" style="display: none;">
+                                    <canvas id="drawingCanvasCollab"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <script src="shapes.js"></script>
-    <script src="script.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+            <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+            <script src="shapes.js"></script>
+            <script src="script.js"></script>
 
 </body>
 

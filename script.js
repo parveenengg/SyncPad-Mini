@@ -457,6 +457,9 @@ function setupEditor(editorId) {
             // Broadcast text changes to other users
             broadcastTextChange();
         }
+
+        // Save state for undo/redo (debounce this in production, but direct for now)
+        saveState();
     });
 
     // Track selection for updating controls
@@ -819,26 +822,29 @@ function toggleFormat(format) {
 
     if (!editor || currentMode !== 'text') return;
 
-    const btnId = format + (isCollab ? 'BtnCollab' : 'Btn');
-    const btn = document.getElementById(btnId);
+    if (!editor || currentMode !== 'text') return;
 
+    // Check selection first
     const selection = window.getSelection();
 
     // If there's selected text, apply formatting to it
     if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
         editor.focus();
         document.execCommand(format, false, null);
-
-        if (btn) {
-            const isActive = document.queryCommandState(format);
-            btn.classList.toggle('active', isActive);
-        }
-    } else {
-        // No selection - just toggle the button state for future text
-        if (btn) {
-            btn.classList.toggle('active');
-        }
     }
+
+    // Update button states (Desktop and Mobile)
+    const targetBtnId = format + (isCollab ? 'BtnCollab' : 'Btn');
+    const mobileBtnId = format + 'BtnMobile';
+
+    const isActive = document.queryCommandState(format);
+
+    const targetBtn = document.getElementById(targetBtnId);
+    if (targetBtn) targetBtn.classList.toggle('active', isActive);
+
+    const mobileBtn = document.getElementById(mobileBtnId);
+    if (mobileBtn) mobileBtn.classList.toggle('active', isActive);
+
 }
 
 // Update format button states based on current selection
