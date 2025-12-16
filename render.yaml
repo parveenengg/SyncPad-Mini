@@ -1,0 +1,12 @@
+# Render.com Deployment Configuration
+# This file tells Render how to build and run your application
+
+services:
+  - type: web
+    name: syncpad
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
