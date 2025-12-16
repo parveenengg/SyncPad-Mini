@@ -343,8 +343,70 @@ function setupEditor(editorId) {
             }
         }
 
-        // Apply formatting as user types
-        applyCurrentFormatting();
+        // Apply current formatting to newly typed text
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const container = range.startContainer;
+
+            // If we just typed text (not pasting), apply formatting
+            if (container.nodeType === Node.TEXT_NODE && container.textContent.length > 0) {
+                const parent = container.parentElement;
+
+                // Check if parent already has formatting
+                const needsFormatting = !parent.style.fontSize ||
+                    !parent.style.color ||
+                    !parent.style.fontFamily;
+
+                if (needsFormatting || parent === editor) {
+                    // Get font family
+                    const fontFamily = currentPage === 'collab' ?
+                        document.getElementById('fontFamilyCollab').value :
+                        document.getElementById('fontFamily').value;
+
+                    // Wrap the text node in a span with current formatting
+                    const span = document.createElement('span');
+                    span.style.fontSize = currentFontSize + 'px';
+                    span.style.color = currentColor;
+                    span.style.fontFamily = fontFamily;
+
+                    // Apply bold, italic, underline if active
+                    const isCollab = currentPage === 'collab';
+                    const boldBtn = document.getElementById(isCollab ? 'boldBtnCollab' : 'boldBtn');
+                    const italicBtn = document.getElementById(isCollab ? 'italicBtnCollab' : 'italicBtn');
+                    const underlineBtn = document.getElementById(isCollab ? 'underlineBtnCollab' : 'underlineBtn');
+
+                    if (boldBtn?.classList.contains('active')) {
+                        span.style.fontWeight = 'bold';
+                    }
+                    if (italicBtn?.classList.contains('active')) {
+                        span.style.fontStyle = 'italic';
+                    }
+                    if (underlineBtn?.classList.contains('active')) {
+                        span.style.textDecoration = 'underline';
+                    }
+
+                    // Only wrap if not already in a formatted span
+                    if (parent === editor || parent.tagName !== 'SPAN') {
+                        try {
+                            const textContent = container.textContent;
+                            span.textContent = textContent;
+                            container.parentNode.replaceChild(span, container);
+
+                            // Restore cursor position
+                            const newRange = document.createRange();
+                            const sel = window.getSelection();
+                            newRange.setStart(span.firstChild, textContent.length);
+                            newRange.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                        } catch (e) {
+                            console.log('Formatting error:', e);
+                        }
+                    }
+                }
+            }
+        }
 
         // Track collaboration colors if on collab page
         if (currentPage === 'collab' && editorId === 'textEditorCollab') {
@@ -700,16 +762,25 @@ function toggleFormat(format) {
 
     if (!editor || currentMode !== 'text') return;
 
-    editor.focus();
-    document.execCommand(format, false, null);
-
-    // Update button state
     const btnId = format + (isCollab ? 'BtnCollab' : 'Btn');
     const btn = document.getElementById(btnId);
 
-    if (btn) {
-        const isActive = document.queryCommandState(format);
-        btn.classList.toggle('active', isActive);
+    const selection = window.getSelection();
+
+    // If there's selected text, apply formatting to it
+    if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
+        editor.focus();
+        document.execCommand(format, false, null);
+
+        if (btn) {
+            const isActive = document.queryCommandState(format);
+            btn.classList.toggle('active', isActive);
+        }
+    } else {
+        // No selection - just toggle the button state for future text
+        if (btn) {
+            btn.classList.toggle('active');
+        }
     }
 }
 
