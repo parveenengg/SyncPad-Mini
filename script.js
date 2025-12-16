@@ -332,6 +332,48 @@ function setupEditor(editorId) {
         editor.appendChild(placeholder);
     }
 
+    // Handle shape creation in text mode causing drag
+    let isEditorDragging = false;
+    let editorStartPos = null;
+
+    editor.addEventListener('mousedown', (e) => {
+        // Only if we have a shape tool selected in text mode
+        if (currentMode === 'text' && currentDrawTool && ['freehand', 'rectangle', 'circle'].includes(currentDrawTool)) {
+            // Check if clicking on existing shape or resize handle
+            if (e.target.closest('.shape-container')) return;
+
+            isEditorDragging = true;
+            editorStartPos = { x: e.clientX, y: e.clientY };
+            e.preventDefault(); // Prevent text selection
+        }
+    });
+
+    editor.addEventListener('mousemove', (e) => {
+        if (!isEditorDragging) return;
+        e.preventDefault();
+        // Optional: Draw a visual indicator/phantom box here
+    });
+
+    editor.addEventListener('mouseup', (e) => {
+        if (!isEditorDragging || !editorStartPos) return;
+
+        const width = Math.abs(e.clientX - editorStartPos.x);
+        const height = Math.abs(e.clientY - editorStartPos.y);
+
+        // Create shape if drag was significant
+        if (width > 20 && height > 20) {
+            createShapeInEditor(currentDrawTool, width, height);
+
+            // Auto-deselect tool after usage for smoother typing flow?
+            // User requested: "if somebody draws something... selected into an object"
+            // Keeping it active allows multiple shapes. 
+            // But let's keep the tool active as per standard drawing apps.
+        }
+
+        isEditorDragging = false;
+        editorStartPos = null;
+    });
+
     // Remove placeholder when user starts typing
     editor.addEventListener('input', (e) => {
         const placeholder = editor.querySelector('.placeholder-text');
@@ -528,18 +570,28 @@ function switchMode(mode, buttonElement) {
         document.getElementById('canvasContainerCollab') :
         document.getElementById('canvasContainer');
 
-    // Update button states
+    // Update buttons
     if (buttonElement) {
-        const buttons = buttonElement.parentElement.querySelectorAll('.mode-btn');
-        buttons.forEach(btn => btn.classList.remove('active'));
+        const nav = buttonElement.closest('.menu-bar');
+        const buttons = nav.querySelectorAll('.mode-btn');
+        buttons.forEach(b => b.classList.remove('active'));
         buttonElement.classList.add('active');
     }
 
+    // Handle UI changes
     if (mode === 'text') {
         if (textEditor) textEditor.style.display = 'block';
         if (canvasContainer) canvasContainer.style.display = 'none';
         showTextControls();
+        const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
+        if (canvas) {
+            canvas.style.pointerEvents = 'none'; // text mode default
+        }
+        // Deselect any active shape tools
+        currentDrawTool = null;
+        document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
     } else {
+        // Canvas/Draw Mode
         if (textEditor) textEditor.style.display = 'none';
         if (canvasContainer) {
             canvasContainer.style.display = 'flex';
@@ -565,11 +617,16 @@ function showTextControls() {
         const textControls = menuBar.querySelectorAll('.text-control');
         textControls.forEach(control => {
             control.style.display = control.classList.contains('font-size-control') ||
-                control.classList.contains('align-controls') ? 'flex' : '';
+                control.classList.contains('align-controls') ||
+                control.classList.contains('shape-tools') ? 'flex' : ''; // Enable shape tools in text mode
         });
 
         const strokeControls = menuBar.querySelectorAll('.stroke-size-control');
         strokeControls.forEach(control => control.style.display = 'none');
+
+        // Hide Canvas specific tools
+        const canvasTools = menuBar.querySelectorAll('.draw-control');
+        canvasTools.forEach(control => control.style.display = 'none');
     });
 }
 
@@ -582,8 +639,8 @@ function showDrawControls() {
         const strokeControls = menuBar.querySelectorAll('.stroke-size-control');
         strokeControls.forEach(control => control.style.display = 'flex');
 
-        const shapeTools = menuBar.querySelectorAll('.shape-tools');
-        shapeTools.forEach(tool => tool.style.display = 'flex');
+        const canvasTools = menuBar.querySelectorAll('.draw-control');
+        canvasTools.forEach(tool => tool.style.display = 'flex');
     });
 
     // Set freehand as default
@@ -1040,16 +1097,21 @@ function clearContent() {
         document.getElementById('textEditor');
     const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
 
-    if (confirm('Are you sure you want to clear all content?')) {
-        if (editor) editor.innerHTML = '';
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Remove confirm dialog - clear immediately
+    if (editor) editor.innerHTML = '';
 
-            // Broadcast canvas clear to other users
-            if (isCollab && socket && isConnected) {
-                socket.emit('clear-canvas');
-            }
+    // Clear shapes state
+    shapes = [];
+    isCreatingShape = false;
+    shapeStartPos = null;
+
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Broadcast canvas clear to other users
+        if (isCollab && socket && isConnected) {
+            socket.emit('clear-canvas');
         }
     }
 }

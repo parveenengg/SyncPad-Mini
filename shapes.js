@@ -4,20 +4,13 @@
 function selectDrawTool(tool) {
     currentDrawTool = tool;
 
-    // Update button states
-    const buttons = document.querySelectorAll('.shape-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
+    // Update button states in both modes
+    const allShapeButtons = document.querySelectorAll('.shape-btn');
+    allShapeButtons.forEach(btn => btn.classList.remove('active'));
 
-    if (tool === 'freehand') {
-        document.getElementById('freehandBtn')?.classList.add('active');
-        document.getElementById('freehandBtnCollab')?.classList.add('active');
-    } else if (tool === 'rectangle') {
-        document.getElementById('rectangleBtn')?.classList.add('active');
-        document.getElementById('rectangleBtnCollab')?.classList.add('active');
-    } else if (tool === 'circle') {
-        document.getElementById('circleBtn')?.classList.add('active');
-        document.getElementById('circleBtnCollab')?.classList.add('active');
-    }
+    // Activate all buttons for this tool (both Text and Canvas mode buttons)
+    const toolButtons = document.querySelectorAll(`.shape-btn[title*="${tool}" i], .shape-btn[onclick*="${tool}"]`);
+    toolButtons.forEach(btn => btn.classList.add('active'));
 }
 
 // Create shape container in text editor
@@ -34,12 +27,20 @@ function createShapeInEditor(shapeType, width, height) {
     shapeContainer.className = 'shape-container';
     shapeContainer.style.width = width + 'px';
     shapeContainer.style.height = height + 'px';
-    shapeContainer.style.float = 'right';
+    shapeContainer.style.float = 'right'; // Default float
     shapeContainer.style.margin = '10px';
-    shapeContainer.style.position = 'relative';
+    shapeContainer.style.position = 'relative'; // Keeps it in flow initially
+
+    // Styling based on shape type
     shapeContainer.style.border = `2px solid ${currentColor}`;
-    shapeContainer.style.borderRadius = shapeType === 'circle' ? '50%' : '8px';
-    shapeContainer.style.background = 'rgba(255, 255, 255, 0.9)';
+    shapeContainer.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'; // Transparent background
+
+    if (shapeType === 'circle') {
+        shapeContainer.style.borderRadius = '50%';
+    } else {
+        shapeContainer.style.borderRadius = '8px';
+    }
+
     shapeContainer.style.cursor = 'move';
 
     // Create canvas inside shape
@@ -48,10 +49,38 @@ function createShapeInEditor(shapeType, width, height) {
     shapeCanvas.height = height;
     shapeCanvas.style.width = '100%';
     shapeCanvas.style.height = '100%';
-    shapeCanvas.style.borderRadius = shapeType === 'circle' ? '50%' : '8px';
+
+    if (shapeType === 'circle') {
+        shapeCanvas.style.borderRadius = '50%';
+    } else {
+        shapeCanvas.style.borderRadius = '8px';
+    }
+
     shapeCanvas.className = 'shape-canvas';
 
     shapeContainer.appendChild(shapeCanvas);
+
+    // Add delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerHTML = '×';
+    deleteBtn.style.position = 'absolute';
+    deleteBtn.style.top = '-10px';
+    deleteBtn.style.right = '-10px';
+    deleteBtn.style.background = 'red';
+    deleteBtn.style.color = 'white';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.borderRadius = '50%';
+    deleteBtn.style.width = '20px';
+    deleteBtn.style.height = '20px';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.display = 'none'; // Show on hover
+    deleteBtn.onclick = function () {
+        shapeContainer.remove();
+    };
+
+    shapeContainer.onmouseenter = () => deleteBtn.style.display = 'block';
+    shapeContainer.onmouseleave = () => deleteBtn.style.display = 'none';
+    shapeContainer.appendChild(deleteBtn);
 
     // Setup drawing on this canvas
     setupShapeCanvas(shapeCanvas);
@@ -59,28 +88,24 @@ function createShapeInEditor(shapeType, width, height) {
     // Make draggable
     makeShapeDraggable(shapeContainer);
 
-    // Insert at cursor or at beginning
+    // Insert at cursor or at end
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.insertNode(shapeContainer);
+        let range = selection.getRangeAt(0);
+        // Ensure we are inserting into the editor
+        if (editor.contains(range.commonAncestorContainer)) {
+            range.collapse(false);
+            range.insertNode(shapeContainer);
+        } else {
+            editor.appendChild(shapeContainer);
+        }
     } else {
-        editor.insertBefore(shapeContainer, editor.firstChild);
+        editor.appendChild(shapeContainer);
     }
 
-    // Store shape data
-    const shapeData = {
-        type: shapeType,
-        width: width,
-        height: height,
-        color: currentColor,
-        id: `shape-${Date.now()}`
-    };
-    shapes.push(shapeData);
-
-    // Broadcast shape creation
+    // Broadcast shape creation (TODO: Enhance collab logic for shapes)
     if (isCollab && socket && isConnected) {
-        socket.emit('create-shape', shapeData);
+        // socket.emit('create-shape', shapeData);
     }
 }
 
@@ -88,10 +113,9 @@ function createShapeInEditor(shapeType, width, height) {
 function setupShapeCanvas(canvas) {
     const ctx = canvas.getContext('2d');
     let drawing = false;
-    let points = [];
 
+    // Prevent dragging container when drawing on canvas
     canvas.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
         drawing = true;
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -99,15 +123,13 @@ function setupShapeCanvas(canvas) {
 
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.lineWidth = currentStrokeSize;
+        ctx.lineWidth = currentStrokeSize || 2;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = currentColor;
-        points = [{ x, y }];
+        ctx.strokeStyle = currentColor || 'black';
     });
 
     canvas.addEventListener('mousemove', (e) => {
         if (!drawing) return;
-        e.stopPropagation();
 
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -115,15 +137,9 @@ function setupShapeCanvas(canvas) {
 
         ctx.lineTo(x, y);
         ctx.stroke();
-        points.push({ x, y });
     });
 
-    canvas.addEventListener('mouseup', (e) => {
-        e.stopPropagation();
-        drawing = false;
-    });
-
-    canvas.addEventListener('mouseleave', () => {
+    window.addEventListener('mouseup', () => {
         drawing = false;
     });
 }
@@ -131,43 +147,36 @@ function setupShapeCanvas(canvas) {
 // Make shape draggable
 function makeShapeDraggable(element) {
     let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
+    let startX, startY;
 
     element.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'CANVAS') return; // Don't drag when drawing
+        // Do not drag if clicking on the canvas to draw
+        if (e.target.tagName === 'CANVAS') return;
 
         isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
+        startX = e.clientX - element.offsetLeft;
+        startY = e.clientY - element.offsetTop;
 
-        const rect = element.getBoundingClientRect();
-        initialLeft = rect.left;
-        initialTop = rect.top;
-
-        element.style.position = 'absolute';
-        element.style.left = initialLeft + 'px';
-        element.style.top = initialTop + 'px';
-        element.style.float = 'none';
-
-        e.preventDefault();
+        // If it was floating, switch to absolute positioning for free drag?
+        // User asked to "drag it up or down". Text flow usually means float.
+        // If we want free drag, we need absolute.
+        // Let's keep it simple: If they drag, maybe we switch to absolute.
+        if (element.style.position !== 'absolute') {
+            element.style.position = 'absolute';
+            element.style.left = element.offsetLeft + 'px';
+            element.style.top = element.offsetTop + 'px';
+            element.style.float = 'none';
+        }
     });
 
-    document.addEventListener('mousemove', (e) => {
+    window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
 
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-
-        element.style.left = (initialLeft + deltaX) + 'px';
-        element.style.top = (initialTop + deltaY) + 'px';
+        element.style.left = (e.clientX - startX) + 'px';
+        element.style.top = (e.clientY - startY) + 'px';
     });
 
-    document.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', () => {
         isDragging = false;
     });
-}
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { selectDrawTool, createShapeInEditor };
 }
