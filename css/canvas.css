@@ -1,0 +1,59 @@
+/* ========================================
+   CANVAS DRAWING AREA STYLES
+   ======================================== */
+
+/* --- Canvas Wrapper --- */
+.canvas-wrapper {
+    flex: 1;
+    background: var(--bg-secondary);
+    position: relative;
+    overflow: hidden;
+    cursor: crosshair;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* --- Drawing Canvas Element --- */
+#drawing-canvas {
+    background: var(--bg-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    touch-action: none;
+    /* Prevent scroll while drawing */
+}
+
+/* ========================================
+   FLOATING IMAGE (CANVAS MODE)
+   ======================================== */
+
+/* --- Floating Image Container --- */
+.canvas-image-container {
+    position: absolute;
+    padding: 5px;
+    border: 1px dashed var(--accent);
+    cursor: move;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.canvas-image-container img {
+    width: 200px;
+    pointer-events: none;
+}
+
+/* --- Floating Image Controls --- */
+.canvas-image-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+}
+
+.canvas-stamp-btn {
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    padding: 4px;
+    border-radius: 4px;
+}

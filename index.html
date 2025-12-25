@@ -3,525 +3,822 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SyncPad - Collaborative Notepad</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SyncPad (Sync Mini)</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/toolbar.css">
+    <link rel="stylesheet" href="css/text-editor.css">
+    <link rel="stylesheet" href="css/canvas.css">
     <link rel="stylesheet" href="style.css">
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
-    <!-- Mobile UI Elements (Global) -->
-    <div class="mobile-top-bar mobile-only">
-        <button class="icon-btn" onclick="goBack()" title="Back">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-        </button>
-        <div class="mobile-actions">
-            <!-- Undo/Redo -->
-            <button class="icon-btn" onclick="undo()" title="Undo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 7v6h6"></path>
-                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-                </svg>
-            </button>
-            <button class="icon-btn" onclick="redo()" title="Redo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 7v6h-6"></path>
-                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path>
-                </svg>
-            </button>
-            <!-- Format "A" -->
-            <button class="icon-btn" onclick="openStyleMenu()" title="Format">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 7V4h16v3"></path>
-                    <path d="M9 20h6"></path>
-                    <path d="M12 4v16"></path>
-                </svg>
-            </button>
-            <!-- Insert "+" -->
-            <button class="icon-btn" onclick="openInsertMenu()" title="Insert">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-            </button>
-            <button class="icon-btn" onclick="openMoreMenu()" title="More">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="1"></circle>
-                    <circle cx="12" cy="5" r="1"></circle>
-                    <circle cx="12" cy="19" r="1"></circle>
-                </svg>
-            </button>
-        </div>
-    </div>
 
-    <div class="mobile-bottom-bar mobile-only">
-        <div class="mobile-font-toggles">
-            <button class="icon-btn" onclick="toggleFormat('bold')" id="boldBtnMobile">
-                <b>B</b>
-            </button>
-            <button class="icon-btn" onclick="toggleFormat('italic')" id="italicBtnMobile">
-                <i>I</i>
-            </button>
-            <button class="icon-btn" onclick="toggleFormat('underline')" id="underlineBtnMobile">
-                <u>U</u>
-            </button>
-            <button class="icon-btn" onclick="openColorPicker()" id="colorBtnMobile">
-                <span style="color: var(--accent-color); font-weight: bold;">A</span>
-            </button>
-            <button class="icon-btn" onclick="toggleAlignment()" id="alignBtnMobile">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="21" y1="10" x2="3" y2="10"></line>
-                    <line x1="21" y1="6" x2="3" y2="6"></line>
-                    <line x1="21" y1="14" x2="3" y2="14"></line>
-                    <line x1="21" y1="18" x2="3" y2="18"></line>
-                </svg>
-            </button>
-            <button class="icon-btn" onclick="document.execCommand('insertUnorderedList')" title="Bullets">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Mobile Modals -->
-    <div id="insertMenuModal" class="mobile-modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-item" onclick="insertLink()">Link</div>
-            <div class="modal-item" onclick="insertImage()">Image</div>
-            <div class="modal-item" onclick="insertTable()">Table</div>
-            <div class="modal-item" onclick="insertHorizontalLine()">Horizontal Line</div>
-            <div class="modal-item" onclick="insertPageBreak()">Page Break</div>
-            <div class="modal-item" onclick="insertPageNumber()">Page Number</div>
-            <div class="modal-item" onclick="closeInsertMenu()">Cancel</div>
-        </div>
-    </div>
-
-    <div id="styleMenuModal" class="mobile-modal" style="display: none;">
-        <div class="modal-content">
-            <h3>Style</h3>
-            <div class="modal-item" onclick="formatBlock('P')">Normal Text</div>
-            <div class="modal-item" onclick="formatBlock('H1')">Title</div>
-            <div class="modal-item" onclick="formatBlock('H2')">Subtitle</div>
-            <div class="modal-item" onclick="formatBlock('H3')">Heading 1</div>
-            <div class="modal-item" onclick="formatBlock('H4')">Heading 2</div>
-            <div class="modal-item" onclick="closeStyleMenu()">Cancel</div>
-        </div>
-    </div>
-
-    <!-- Home Page -->
-    <div id="homePage">
-        <!-- Navbar -->
-        <nav class="navbar desktop-only">
-            <div class="navbar-left">
-                <a href="https://github.com/parveenengg" target="_blank" rel="noopener noreferrer" class="nav-link">
-                    <span class="nav-icon">🔗</span>
-                    <span class="nav-text">GitHub</span>
-                </a>
-                <a href="https://parveenengg.github.io/parveenkumar/index.html" target="_blank"
-                    rel="noopener noreferrer" class="nav-link">
-                    <span class="nav-icon">P</span>
-                    <span class="nav-text">Portfolio</span>
-                </a>
+    <!-- ========================================
+         NAVIGATION
+         ======================================== -->
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="nav-brand">
+                <span class="brand-name">SyncPad</span>
+                <span class="brand-tag">Mini</span>
             </div>
-            <!-- Navbar Center -->
-            <div class="navbar-center" onclick="goToCollab()">
-                SyncPad
+            <div class="nav-links desktop-only">
+                <a href="https://github.com/parveenengg" target="_blank" class="nav-link">GitHub</a>
+                <a href="#" class="nav-link">Portfolio</a>
             </div>
+        </div>
 
-            <!-- Navbar Right -->
-            <div class="navbar-right">
-                <!-- Buttons moved to menu bar -->
-            </div>
-        </nav>
-
-        <!-- Menu Bar -->
-        <div class="menu-bar">
+        <!-- Center: Mode Toggle (Desktop Only) -->
+        <div class="nav-center desktop-only">
             <div class="mode-toggle">
-                <button class="mode-btn active" onclick="switchMode('text', this)">Text</button>
-                <button class="mode-btn" onclick="switchMode('draw', this)">Canvas</button>
-            </div>
-
-            <div class="menu-separator"></div>
-
-            <!-- Action Buttons (New Location) -->
-            <button class="icon-btn" onclick="downloadPDF()" title="Download PDF" aria-label="Download PDF">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-            </button>
-
-            <button class="icon-btn" onclick="clearContent()" title="Clear Page" aria-label="Clear Page">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-            </button>
-
-            <div class="menu-separator"></div>
-
-            <!-- Shape Tools (Text Mode - Drawing Objects) -->
-            <div class="shape-tools text-control">
-                <button class="icon-btn shape-btn" onclick="selectDrawTool('freehand')" title="Draw Object">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                    </svg>
+                <button class="mode-btn active" data-mode="text">
+                    <span class="material-icons-round">article</span>
+                    Text
                 </button>
-                <button class="icon-btn shape-btn" onclick="selectDrawTool('rectangle')" title="Rectangle Object">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                    </svg>
-                </button>
-                <button class="icon-btn shape-btn" id="circleBtn" onclick="selectDrawTool('circle')"
-                    title="Circle Object">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="9" />
-                    </svg>
-                </button>
-            </div>
-
-            <div class="shape-tools draw-control" style="display: none;">
-                <!-- Full Canvas Tools -->
-                <button class="icon-btn shape-btn active" id="freehandBtnCanvas" onclick="selectDrawTool('freehand')"
-                    title="Freehand">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                    </svg>
-                </button>
-            </div>
-
-            <div class="menu-separator draw-control" style="display: none;"></div>
-
-            <!-- Font Size Controls (Text Mode Only) -->
-            <div class="font-size-control text-control">
-                <button class="icon-btn" onclick="changeFontSize(-1)" aria-label="Decrease font size">−</button>
-                <span class="font-size-display" id="fontSizeDisplay" onclick="showFontSizePicker()">14</span>
-                <button class="icon-btn" onclick="changeFontSize(1)" aria-label="Increase font size">+</button>
-            </div>
-
-            <select class="menu-select text-control" id="fontFamily" onchange="applyFormatting()">
-                <option value="'Times New Roman', serif">Times New Roman</option>
-                <option value="'Inter', sans-serif">Inter</option>
-                <option value="'Arial', sans-serif">Arial</option>
-            </select>
-
-            <div class="menu-separator"></div>
-
-            <!-- Text Formatting Buttons (Text Mode Only) -->
-            <button class="icon-btn format-btn text-control" id="boldBtn" onclick="toggleFormat('bold')"
-                aria-label="Bold">B</button>
-            <button class="icon-btn format-btn text-control" id="italicBtn" onclick="toggleFormat('italic')"
-                aria-label="Italic">I</button>
-            <button class="icon-btn format-btn text-control" id="underlineBtn" onclick="toggleFormat('underline')"
-                aria-label="Underline">U</button>
-
-            <div class="menu-separator"></div>
-
-            <!-- Stroke Size Control (Draw Mode Only) -->
-            <div class="stroke-size-control draw-control" style="display: none;">
-                <button class="icon-btn" onclick="changeStrokeSize(-1)" aria-label="Decrease stroke size">−</button>
-                <span class="stroke-size-display" id="strokeSizeDisplay">3</span>
-                <button class="icon-btn" onclick="changeStrokeSize(1)" aria-label="Increase stroke size">+</button>
-            </div>
-
-            <!-- Color Picker (Circles) -->
-            <div class="color-picker">
-                <button class="color-circle" data-color="black" onclick="selectColor('black')"
-                    style="background: black;" aria-label="Black"></button>
-                <button class="color-circle" data-color="red" onclick="selectColor('red')" style="background: red;"
-                    aria-label="Red"></button>
-                <button class="color-circle" data-color="blue" onclick="selectColor('blue')" style="background: blue;"
-                    aria-label="Blue"></button>
-                <button class="color-circle" data-color="green" onclick="selectColor('green')"
-                    style="background: green;" aria-label="Green"></button>
-            </div>
-
-            <div class="menu-separator"></div>
-
-            <!-- Alignment Buttons (Text Mode Only) -->
-            <div class="align-controls text-control">
-                <button class="icon-btn align-btn active" id="alignLeft" onclick="setAlignment('left')"
-                    aria-label="Align Left" title="Align Left">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 3h12M2 6h12M2 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                            stroke-linecap="round" />
-                    </svg>
-                </button>
-                <button class="icon-btn align-btn" id="alignCenter" onclick="setAlignment('center')"
-                    aria-label="Align Center" title="Align Center">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 3h12M4 6h8M2 9h12M4 12h8" stroke="#5f6368" stroke-width="1.5"
-                            stroke-linecap="round" />
-                    </svg>
-                </button>
-                <button class="icon-btn align-btn" id="alignRight" onclick="setAlignment('right')"
-                    aria-label="Align Right" title="Align Right">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 3h12M2 6h12M6 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                            stroke-linecap="round" />
-                    </svg>
+                <button class="mode-btn" data-mode="canvas">
+                    <span class="material-icons-round">draw</span>
+                    Canvas
                 </button>
             </div>
         </div>
 
-        <!-- Editor Container -->
-        <div class="container">
-            <div class="page-wrapper">
-                <!-- Text Editor -->
-                <div id="textEditor" contenteditable="true" class="text-editor a4-page" spellcheck="false"></div>
+        <div class="nav-right">
+            <button id="links-btn" class="icon-btn mobile-only" title="Links">
+                <span class="material-icons-round">link</span>
+            </button>
+            <button id="download-btn" class="primary-btn">
+                <span class="material-icons-round">download</span>
+                <span class="btn-text">PDF</span>
+            </button>
+        </div>
+    </nav>
 
-                <!-- Drawing Canvas -->
-                <div id="canvasContainer" style="display: none;">
-                    <canvas id="drawingCanvas"></canvas>
-                </div>
-            </div>
+    <!-- Mobile Links Menu (Hidden by default) -->
+    <div id="mobile-menu" class="mobile-menu hidden">
+        <a href="https://github.com/parveenengg" target="_blank" class="menu-item">
+            <span class="material-icons-round">code</span> GitHub
+        </a>
+        <a href="#" class="menu-item">
+            <span class="material-icons-round">person</span> Portfolio
+        </a>
+    </div>
+
+    <!-- Mode Toggle Bar (Mobile Only) -->
+    <div class="mode-bar mobile-only">
+        <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="text">
+                <span class="material-icons-round">article</span>
+                Text
+            </button>
+            <button class="mode-btn" data-mode="canvas">
+                <span class="material-icons-round">draw</span>
+                Canvas
+            </button>
         </div>
     </div>
 
-    <!-- Collaborative Page -->
-    <div id="collabPage" class="collab-page">
-        <!-- Navbar -->
-        <nav class="navbar">
-            <!-- Navbar Left -->
-            <div class="navbar-left">
-                <!-- User List Toggle (Mobile) -->
-                <button class="nav-btn user-toggle-btn" onclick="toggleMobileUsers()">
-                    <span class="nav-icon">👥</span>
-                    <span class="nav-text" id="userCountMobile">1</span>
-                </button>
-                <a href="#" class="nav-link" onclick="goToHome()" title="Back to Home">
-                    <span class="nav-icon">🏠</span>
-                </a>
-            </div>
+    <!-- ========================================
+         MAIN WORKSPACE
+         ======================================== -->
+    <main class="workspace">
 
-            <!-- Navbar Center -->
-            <div class="navbar-center" id="roomIdDisplay" title="Click to copy link" onclick="copyRoomLink()">
-                SyncPad (Link)
-            </div>
+        <!-- ========================================
+             TEXT MODE
+             ======================================== -->
+        <div id="text-container" class="editor-container active">
+            <!-- Text Toolbar -->
+            <div class="toolbar text-toolbar">
+                <div class="tool-group">
+                    <select id="font-family" class="tool-select" title="Font Family">
+                        <option value="Inter">Inter</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Serif">Serif</option>
+                        <option value="Monospace">Mono</option>
+                    </select>
+                    <select id="font-size" class="tool-select" title="Font Size">
+                        <option value="1">Small</option>
+                        <option value="3" selected>Normal</option>
+                        <option value="5">Large</option>
+                        <option value="7">Huge</option>
+                    </select>
+                </div>
 
-            <!-- Navbar Right -->
-            <div class="navbar-right">
-                <!-- Buttons are now in Menu Bar -->
-            </div>
-        </nav>
+                <div class="tool-divider"></div>
 
-        <!-- Main Content Area -->
-        <div class="collab-layout">
-            <!-- Left Side: User List -->
-            <div class="collab-sidebar">
-                <div class="share-link-container">
-                    <button class="copy-link-btn" onclick="copyLink(this)">
-                        <span class="btn-icon">📋</span>
-                        <span class="btn-text">Copy Link</span>
+                <div class="tool-group">
+                    <button class="tool-btn" data-cmd="bold" title="Bold">
+                        <span class="material-icons-round">format_bold</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="italic" title="Italic">
+                        <span class="material-icons-round">format_italic</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="underline" title="Underline">
+                        <span class="material-icons-round">format_underlined</span>
+                    </button>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="text-color" class="color-input" value="#000000" title="Text Color">
+                        <span class="material-icons-round color-icon">format_color_text</span>
+                    </div>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="highlight-color" class="color-input" value="#ffffff"
+                            title="Highlight Color">
+                        <span class="material-icons-round color-icon">border_color</span>
+                    </div>
+                </div>
+
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <button class="tool-btn" data-cmd="justifyLeft" title="Align Left">
+                        <span class="material-icons-round">format_align_left</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="justifyCenter" title="Align Center">
+                        <span class="material-icons-round">format_align_center</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="justifyRight" title="Align Right">
+                        <span class="material-icons-round">format_align_right</span>
                     </button>
                 </div>
 
-                <div class="online-users">
-                    <h3 class="users-title-desktop">Online Users</h3>
-                    <div class="user-list-desktop">
-                        <div class="user-item">
-                            <div class="user-circle user-black"></div>
-                            <input type="text" class="user-name-input" placeholder="Your name" maxlength="20">
-                        </div>
-                        <div class="user-item">
-                            <div class="user-circle user-red"></div>
-                            <input type="text" class="user-name-input" placeholder="Name" maxlength="20">
-                        </div>
-                        <div class="user-item">
-                            <div class="user-circle user-blue"></div>
-                            <input type="text" class="user-name-input" placeholder="Name" maxlength="20">
-                        </div>
-                        <div class="user-item">
-                            <div class="user-circle user-green"></div>
-                            <input type="text" class="user-name-input" placeholder="Name" maxlength="20">
-                        </div>
-                    </div>
-                    <div class="user-count-mobile">
-                        <div class="user-circle-small user-black"></div>
-                        <div class="user-circle-small user-red"></div>
-                        <div class="user-circle-small user-blue"></div>
-                        <div class="user-circle-small user-green"></div>
-                        <span class="user-count-text">4</span>
-                    </div>
-                    <p class="your-color-indicator">Your color: <span id="currentUserColor"
-                            style="font-weight: bold;"></span></p>
-                    <div class="collab-editor-wrapper">
-                        <!-- Menu Bar (Desktop) -->
-                        <div class="menu-bar desktop-only">
-                            <div class="mode-toggle">
-                                <button class="mode-btn active" onclick="switchMode('text', this)">Text</button>
-                                <button class="mode-btn" onclick="switchMode('draw', this)">Canvas</button>
-                            </div>
+                <div class="tool-divider"></div>
 
-                            <div class="menu-separator"></div>
+                <div class="tool-group">
+                    <button class="tool-btn" data-cmd="insertUnorderedList" title="Bullet List">
+                        <span class="material-icons-round">format_list_bulleted</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="insertOrderedList" title="Numbered List">
+                        <span class="material-icons-round">format_list_numbered</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="indent" title="Indent">
+                        <span class="material-icons-round">format_indent_increase</span>
+                    </button>
+                    <button class="tool-btn" data-cmd="outdent" title="Outdent">
+                        <span class="material-icons-round">format_indent_decrease</span>
+                    </button>
+                </div>
 
-                            <!-- Action Buttons -->
-                            <button class="icon-btn" onclick="downloadPDF()" title="Download PDF">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                            </button>
-                            <button class="icon-btn" onclick="clearContent()" title="Clear Page">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path
-                                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                                    </path>
-                                </svg>
-                            </button>
+                <div class="tool-divider"></div>
 
-                            <div class="menu-separator"></div>
-
-                            <!-- Desktop Text Controls -->
-                            <div class="shape-tools text-control">
-                                <button class="icon-btn shape-btn" onclick="selectDrawTool('freehand')"
-                                    title="Draw Object">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn shape-btn" onclick="selectDrawTool('rectangle')"
-                                    title="Rectangle Object">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn shape-btn" onclick="selectDrawTool('circle')"
-                                    title="Circle Object">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <circle cx="12" cy="12" r="9" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div class="shape-tools draw-control" style="display: none;">
-                                <button class="icon-btn shape-btn active" id="freehandBtnCanvasCollab"
-                                    onclick="selectDrawTool('freehand')" title="Freehand">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div class="menu-separator draw-control" style="display: none;"></div>
-
-                            <!-- Font Size Controls -->
-                            <div class="font-size-control text-control">
-                                <button class="icon-btn" onclick="changeFontSize(-1)">−</button>
-                                <span class="font-size-display" id="fontSizeDisplayCollab"
-                                    onclick="showFontSizePicker()">14</span>
-                                <button class="icon-btn" onclick="changeFontSize(1)">+</button>
-                            </div>
-
-                            <select class="menu-select text-control" id="fontFamilyCollab" onchange="applyFormatting()">
-                                <option value="'Times New Roman', serif">Times New Roman</option>
-                                <option value="'Inter', sans-serif">Inter</option>
-                                <option value="'Arial', sans-serif">Arial</option>
-                            </select>
-
-                            <div class="menu-separator"></div>
-
-                            <!-- Text Formatting Buttons -->
-                            <button class="icon-btn format-btn text-control" id="boldBtnCollab"
-                                onclick="toggleFormat('bold')">B</button>
-                            <button class="icon-btn format-btn text-control" id="italicBtnCollab"
-                                onclick="toggleFormat('italic')">I</button>
-                            <button class="icon-btn format-btn text-control" id="underlineBtnCollab"
-                                onclick="toggleFormat('underline')">U</button>
-
-                            <div class="menu-separator"></div>
-
-                            <!-- Stroke Size Control -->
-                            <div class="stroke-size-control draw-control" style="display: none;">
-                                <button class="icon-btn" onclick="changeStrokeSize(-1)">−</button>
-                                <span class="stroke-size-display" id="strokeSizeDisplayCollab">3</span>
-                                <button class="icon-btn" onclick="changeStrokeSize(1)">+</button>
-                            </div>
-
-                            <!-- Color Picker -->
-                            <div class="color-picker">
-                                <button class="color-circle" data-color="black" onclick="selectColor('black')"
-                                    style="background: black;"></button>
-                                <button class="color-circle" data-color="red" onclick="selectColor('red')"
-                                    style="background: red;"></button>
-                                <button class="color-circle" data-color="blue" onclick="selectColor('blue')"
-                                    style="background: blue;"></button>
-                                <button class="color-circle" data-color="green" onclick="selectColor('green')"
-                                    style="background: green;"></button>
-                            </div>
-
-                            <div class="menu-separator"></div>
-
-                            <!-- Alignment Buttons -->
-                            <div class="align-controls text-control">
-                                <button class="icon-btn align-btn active" id="alignLeftCollab"
-                                    onclick="setAlignment('left')">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M2 3h12M2 6h12M2 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn align-btn" id="alignCenterCollab"
-                                    onclick="setAlignment('center')">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M2 3h12M4 6h8M2 9h12M4 12h8" stroke="#5f6368" stroke-width="1.5"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button class="icon-btn align-btn" id="alignRightCollab"
-                                    onclick="setAlignment('right')">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M2 3h12M2 6h12M6 9h8M2 12h12" stroke="#5f6368" stroke-width="1.5"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="container">
-                            <div class="page-wrapper">
-                                <div id="textEditorCollab" contenteditable="true" class="text-editor a4-page"
-                                    spellcheck="false"></div>
-
-                                <div id="canvasContainerCollab" style="display: none;">
-                                    <canvas id="drawingCanvasCollab"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="tool-group">
+                    <button id="clear-text-btn" class="tool-btn danger" title="Clear All">
+                        <span class="material-icons-round">delete_outline</span>
+                    </button>
                 </div>
             </div>
 
+            <!-- The Page -->
+            <div class="editor-scroll-area">
+                <div id="editor" class="editor-page" contenteditable="true" spellcheck="false">
+                    <div class="placeholder">Start typing here...</div>
+                </div>
+            </div>
+        </div>
 
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-            <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-            <script src="shapes.js"></script>
-            <script src="script.js"></script>
+        <!-- ========================================
+             CANVAS MODE
+             ======================================== -->
+        <div id="canvas-container" class="canvas-container">
+            <!-- Canvas Toolbar -->
+            <div class="toolbar canvas-toolbar">
+                <div class="tool-group">
+                    <select id="brush-type" class="tool-select" title="Brush Type">
+                        <option value="pen" selected>Pen</option>
+                        <option value="marker">Marker</option>
+                        <option value="pencil">Pencil</option>
+                    </select>
+                </div>
 
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <button class="tool-btn active param-btn" id="tool-brush" title="Brush">
+                        <span class="material-icons-round">brush</span>
+                    </button>
+                    <button class="tool-btn param-btn" id="tool-eraser" title="Eraser">
+                        <span class="material-icons-round">auto_fix_normal</span>
+                    </button>
+                </div>
+
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <div id="stroke-options" class="stroke-options">
+                        <button class="stroke-btn" data-size="2" title="Small">
+                            <div class="dot" style="width: 2px; height: 2px;"></div>
+                        </button>
+                        <button class="stroke-btn active" data-size="5" title="Medium">
+                            <div class="dot" style="width: 6px; height: 6px;"></div>
+                        </button>
+                        <button class="stroke-btn" data-size="10" title="Large">
+                            <div class="dot" style="width: 12px; height: 12px;"></div>
+                        </button>
+                        <button class="stroke-btn" data-size="20" title="X-Large">
+                            <div class="dot" style="width: 20px; height: 20px;"></div>
+                        </button>
+                    </div>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="stroke-color" class="color-input" value="#000000" title="Color">
+                        <span class="material-icons-round color-icon">palette</span>
+                    </div>
+                </div>
+
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <button class="tool-btn shape-btn" data-shape="rect" title="Rectangle">
+                        <span class="material-icons-round">crop_square</span>
+                    </button>
+                    <button class="tool-btn shape-btn" data-shape="circle" title="Circle">
+                        <span class="material-icons-round">radio_button_unchecked</span>
+                    </button>
+                    <button class="tool-btn shape-btn" data-shape="tri" title="Triangle">
+                        <span class="material-icons-round">change_history</span>
+                    </button>
+                    <button class="tool-btn shape-btn" data-shape="star" title="Star">
+                        <span class="material-icons-round">star_border</span>
+                    </button>
+                    <button class="tool-btn shape-btn" data-shape="line" title="Line">
+                        <span class="material-icons-round">remove</span>
+                    </button>
+                    <button class="tool-btn shape-btn" data-shape="arrow" title="Arrow">
+                        <span class="material-icons-round">arrow_right_alt</span>
+                    </button>
+                </div>
+
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <button class="tool-btn" id="canvas-img-btn" title="Add Image">
+                        <span class="material-icons-round">add_photo_alternate</span>
+                    </button>
+                    <input type="file" id="canvas-img-input" accept="image/*" class="hidden">
+                </div>
+
+                <div class="tool-divider"></div>
+
+                <div class="tool-group">
+                    <button id="clear-canvas-btn" class="tool-btn danger" title="Clear Canvas">
+                        <span class="material-icons-round">delete_outline</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="canvas-wrapper">
+                <canvas id="drawing-canvas"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Branding Footer (Hidden in UI, Visible in PDF) -->
+    <div id="pdf-footer" class="pdf-footer hidden">
+        SyncPad – By Praveen Kumar
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("SyncPad Script Loaded");
+
+            // --- State ---
+            let currentMode = 'text';
+            const state = {
+                canvas: {
+                    isDrawing: false,
+                    isDirty: false,
+                    tool: 'brush',
+                    brushType: 'pen',
+                    color: '#000000',
+                    size: 5,
+                    startX: 0,
+                    startY: 0,
+                    snapshot: null,
+                    floatingImage: null
+                }
+            };
+            const dom = {
+                nav: {
+                    linksBtn: document.getElementById('links-btn'),
+                    mobileMenu: document.getElementById('mobile-menu'),
+                    downloadBtn: document.getElementById('download-btn'),
+                },
+                mode: {
+                    btns: document.querySelectorAll('.mode-btn'),
+                    containers: {
+                        text: document.getElementById('text-container'),
+                        canvas: document.getElementById('canvas-container')
+                    }
+                },
+                text: {
+                    editor: document.getElementById('editor'),
+                    toolbar: document.querySelector('.text-toolbar'),
+                    fontFamily: document.getElementById('font-family'),
+                    fontSize: document.getElementById('font-size'),
+                    textColor: document.getElementById('text-color'),
+                    highlightColor: document.getElementById('highlight-color'),
+                    clearBtn: document.getElementById('clear-text-btn'),
+                    cmdBtns: document.querySelectorAll('.text-toolbar .tool-btn[data-cmd]'),
+                    imgBtn: document.getElementById('text-img-btn'),
+                    imgInput: document.getElementById('text-img-input')
+                },
+                canvas: {
+                    element: document.getElementById('drawing-canvas'),
+                    ctx: document.getElementById('drawing-canvas').getContext('2d'),
+                    wrapper: document.querySelector('.canvas-wrapper'),
+
+                    brushTypeSelect: document.getElementById('brush-type'),
+                    brushBtn: document.getElementById('tool-brush'),
+                    eraserBtn: document.getElementById('tool-eraser'),
+                    shapeBtns: document.querySelectorAll('.shape-btn'),
+
+                    // New Stroke UI
+                    strokeBtns: document.querySelectorAll('.stroke-btn'),
+
+                    colorInput: document.getElementById('stroke-color'),
+                    clearBtn: document.getElementById('clear-canvas-btn'),
+
+                    imgBtn: document.getElementById('canvas-img-btn'),
+                    imgInput: document.getElementById('canvas-img-input')
+                }
+            };
+
+            // --- Initialization ---
+            function init() {
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+
+                // Robust Resize: Observer
+                if (window.ResizeObserver) {
+                    const ro = new ResizeObserver(() => {
+                        // Determine if visible
+                        if (dom.canvas.wrapper.offsetParent !== null) {
+                            resizeCanvas();
+                        }
+                    });
+                    ro.observe(dom.canvas.wrapper);
+                }
+
+                // Before Unload Warning
+                window.addEventListener('beforeunload', (e) => {
+                    e.preventDefault();
+                    e.returnValue = 'Data will be lost!';
+                });
+            }
+
+            // --- UI Logic ---
+
+            // Mobile Menu
+            dom.nav.linksBtn.addEventListener('click', () => {
+                dom.nav.mobileMenu.classList.toggle('hidden');
+            });
+
+            // Listen for canvas mode activation from main.js
+            window.addEventListener('canvasModeActivated', () => {
+                setTimeout(resizeCanvas, 50);
+            });
+
+
+
+
+            // --- Canvas Logic ---
+
+            function resizeCanvas() {
+                // Save current content
+                const dataUrl = dom.canvas.element.toDataURL();
+                const img = new Image();
+                img.src = dataUrl;
+
+                // Resize
+                const rect = dom.canvas.wrapper.getBoundingClientRect();
+                dom.canvas.element.width = rect.width;
+                dom.canvas.element.height = rect.height;
+
+                // Restore content
+                img.onload = () => {
+                    dom.canvas.ctx.drawImage(img, 0, 0);
+                };
+                // Re-set styles
+                updateCanvasContext();
+            }
+
+            function updateCanvasContext() {
+                const ctx = dom.canvas.ctx;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineWidth = state.canvas.size;
+
+                if (state.canvas.tool === 'eraser') {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.globalAlpha = 1.0;
+                } else {
+                    ctx.strokeStyle = state.canvas.color;
+
+                    // Brush styles
+                    if (state.canvas.tool === 'brush') {
+                        if (state.canvas.brushType === 'pen') {
+                            ctx.globalAlpha = 1.0;
+                            ctx.lineCap = 'round';
+                        } else if (state.canvas.brushType === 'marker') {
+                            ctx.globalAlpha = 0.5;
+                            ctx.lineCap = 'square';
+                        } else if (state.canvas.brushType === 'pencil') {
+                            ctx.globalAlpha = 0.8;
+                        }
+                    } else {
+                        // Shapes
+                        ctx.globalAlpha = 1.0;
+                    }
+                }
+            }
+
+            // Tool Selection
+            dom.canvas.brushTypeSelect.addEventListener('change', (e) => {
+                state.canvas.brushType = e.target.value;
+                setCanvasTool('brush'); // switch to brush if not already
+            });
+
+            dom.canvas.brushBtn.addEventListener('click', () => setCanvasTool('brush'));
+            dom.canvas.eraserBtn.addEventListener('click', () => setCanvasTool('eraser'));
+
+            // Robust Shape Listener Attachment
+            const shapeButtons = document.querySelectorAll('.shape-btn');
+            console.log("Found shape buttons for binding:", shapeButtons.length);
+            shapeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    console.log("Shape Clicked:", btn.dataset.shape);
+                    setCanvasTool(btn.dataset.shape);
+                });
+            });
+
+            function setCanvasTool(tool) {
+                console.log("SetCanvasTool:", tool);
+                state.canvas.tool = tool;
+
+                // Update UI
+                dom.canvas.brushBtn.classList.toggle('active', tool === 'brush');
+                dom.canvas.eraserBtn.classList.toggle('active', tool === 'eraser');
+                dom.canvas.shapeBtns.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.shape === tool);
+                });
+
+                // Cursor logic
+                dom.canvas.element.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+                updateCanvasContext();
+            }
+
+            // Stroke Size (Visual Buttons)
+            dom.canvas.strokeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // UI Update
+                    dom.canvas.strokeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    // State Update
+                    state.canvas.size = parseInt(btn.dataset.size);
+                    updateCanvasContext();
+                });
+            });
+
+            // Color Feedback
+            dom.canvas.colorInput.addEventListener('input', (e) => {
+                state.canvas.color = e.target.value;
+                // Update the icon next to it to show the color
+                const wrapper = dom.canvas.colorInput.parentElement;
+                const icon = wrapper.querySelector('.color-icon');
+                if (icon) {
+                    icon.style.color = e.target.value;
+                }
+                updateCanvasContext();
+            });
+
+            // Clear Canvas
+            dom.canvas.clearBtn.addEventListener('click', () => {
+                if (confirm('Clear entire drawing?')) {
+                    dom.canvas.ctx.clearRect(0, 0, dom.canvas.element.width, dom.canvas.element.height);
+                    state.canvas.isDirty = false;
+                }
+            });
+
+            // Canvas Image Logic (Floating Div)
+            dom.canvas.imgBtn.addEventListener('click', () => dom.canvas.imgInput.click());
+            dom.canvas.imgInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (red) => {
+                        createFloatingImage(red.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+                e.target.value = '';
+            });
+
+            function createFloatingImage(src) {
+                if (state.canvas.floatingImage) {
+                    state.canvas.floatingImage.remove(); // Only one at a time for simplicity
+                }
+
+                const container = document.createElement('div');
+                container.className = 'canvas-image-container';
+                container.style.left = '50px';
+                container.style.top = '50px';
+
+                const img = new Image();
+                img.src = src;
+
+                const controls = document.createElement('div');
+                controls.className = 'canvas-image-controls';
+
+                const stampBtn = document.createElement('button');
+                stampBtn.className = 'canvas-stamp-btn';
+                stampBtn.innerText = 'Stamp';
+
+                // Stamp Logic
+                stampBtn.onclick = () => {
+                    const rect = dom.canvas.element.getBoundingClientRect();
+                    const contRect = container.getBoundingClientRect();
+
+                    // Calculate relative position to canvas
+                    const x = contRect.left - rect.left + 5; // +5 padding
+                    const y = contRect.top - rect.top + 5;
+                    const w = img.width; // current rendered width
+                    const h = img.height;
+
+                    // Draw to canvas
+                    const ctx = dom.canvas.ctx;
+                    ctx.globalAlpha = 1.0;
+                    ctx.drawImage(img, x, y, img.getBoundingClientRect().width, img.getBoundingClientRect().height);
+
+                    state.canvas.isDirty = true;
+
+                    container.remove();
+                    state.canvas.floatingImage = null;
+                };
+
+                controls.appendChild(stampBtn);
+                container.appendChild(img);
+                container.appendChild(controls);
+                dom.canvas.wrapper.appendChild(container);
+
+                state.canvas.floatingImage = container;
+
+                // Basic Drag Logic
+                let isDragging = false;
+                let diffX = 0, diffY = 0;
+
+                container.addEventListener('mousedown', (e) => {
+                    if (e.target === stampBtn) return;
+                    isDragging = true;
+                    const rect = container.getBoundingClientRect();
+                    diffX = e.clientX - rect.left;
+                    diffY = e.clientY - rect.top;
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    container.style.left = (e.clientX - diffX - dom.canvas.wrapper.getBoundingClientRect().left) + 'px';
+                    container.style.top = (e.clientY - diffY - dom.canvas.wrapper.getBoundingClientRect().top) + 'px';
+                });
+
+                window.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+            }
+
+
+            // Drawing Events
+            const canvas = dom.canvas.element;
+            const ctx = dom.canvas.ctx;
+
+            const getPos = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX || e.touches[0].clientX) - rect.left;
+                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                return { x, y };
+            };
+
+            const startDraw = (e) => {
+                if (e.cancelable) e.preventDefault(); // Prevent scrolling/emulation and text selection
+
+                if (e.type !== 'mousedown' && e.type !== 'touchstart') return;
+
+                console.log(`StartDraw: ${e.type} at ${e.clientX || e.touches[0].clientX}, ${e.clientY || e.touches[0].clientY}`);
+
+                state.canvas.isDrawing = true;
+                state.canvas.isDirty = true;
+
+                const { x, y } = getPos(e);
+                state.canvas.startX = x;
+                state.canvas.startY = y;
+
+                // Force round caps for smooth drawing
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+
+                // Snapshot for shapes
+                if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+                    state.canvas.snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                } else {
+                    // Dot for single click
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                }
+            };
+
+            // Draw Function (Standard Path)
+            const draw = (e) => {
+                if (!state.canvas.isDrawing) return;
+                if (e.cancelable) e.preventDefault();
+                e.stopPropagation();
+
+                const { x, y } = getPos(e);
+
+                // Debug
+                console.log(`Draw: ${state.canvas.tool} | ${e.type} | ${x},${y}`);
+
+                if (state.canvas.tool === 'brush' || state.canvas.tool === 'eraser') {
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                } else if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+                    // Restore snapshot
+                    ctx.putImageData(state.canvas.snapshot, 0, 0);
+                    ctx.beginPath();
+
+                    const w = x - state.canvas.startX;
+                    const h = y - state.canvas.startY;
+
+                    if (state.canvas.tool === 'rect') {
+                        ctx.rect(state.canvas.startX, state.canvas.startY, w, h);
+                    } else if (state.canvas.tool === 'circle') {
+                        const r = Math.sqrt(w * w + h * h);
+                        ctx.arc(state.canvas.startX, state.canvas.startY, r, 0, 2 * Math.PI);
+                    } else if (state.canvas.tool === 'line') {
+                        ctx.moveTo(state.canvas.startX, state.canvas.startY);
+                        ctx.lineTo(x, y);
+                    } else if (state.canvas.tool === 'tri') {
+                        ctx.moveTo(state.canvas.startX + w / 2, state.canvas.startY);
+                        ctx.lineTo(state.canvas.startX, state.canvas.startY + h);
+                        ctx.lineTo(state.canvas.startX + w, state.canvas.startY + h);
+                        ctx.closePath();
+                    } else if (state.canvas.tool === 'star') {
+                        const r = Math.sqrt(w * w + h * h);
+                        const spikes = 5;
+                        const outerRadius = r;
+                        const innerRadius = r / 2;
+                        let rot = Math.PI / 2 * 3;
+                        let cx = state.canvas.startX;
+                        let cy = state.canvas.startY;
+                        const step = Math.PI / spikes;
+
+                        ctx.moveTo(cx, cy - outerRadius);
+                        for (let i = 0; i < spikes; i++) {
+                            cx = state.canvas.startX + Math.cos(rot) * outerRadius;
+                            cy = state.canvas.startY + Math.sin(rot) * outerRadius;
+                            ctx.lineTo(cx, cy);
+                            rot += step;
+
+                            cx = state.canvas.startX + Math.cos(rot) * innerRadius;
+                            cy = state.canvas.startY + Math.sin(rot) * innerRadius;
+                            ctx.lineTo(cx, cy);
+                            rot += step;
+                        }
+                        ctx.closePath();
+                    } else if (state.canvas.tool === 'arrow') {
+                        const headLen = 15;
+                        const angle = Math.atan2(h, w);
+                        ctx.moveTo(state.canvas.startX, state.canvas.startY);
+                        ctx.lineTo(x, y);
+                        // Arrow head
+                        ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+                    }
+                    ctx.stroke();
+                }
+            };
+
+            // Stop Draw
+            const stopDraw = () => {
+                if (state.canvas.isDrawing) {
+                    console.log("Stop Draw");
+                    state.canvas.isDrawing = false;
+                    ctx.beginPath();
+                }
+            };
+
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDraw);
+            // canvas.addEventListener('mouseout', stopDraw); // POTENTIAL BUG SOURCE
+
+            canvas.addEventListener('touchstart', startDraw, { passive: false });
+            canvas.addEventListener('touchmove', draw, { passive: false });
+            canvas.addEventListener('touchend', stopDraw);
+
+            // --- PDF Export ---
+            // --- PDF Export ---
+            dom.nav.downloadBtn.addEventListener('click', () => {
+                // --- Download Guard ---
+                const textContent = dom.text.editor.innerText.trim();
+                const hasText = textContent.length > 0 && textContent !== "Start typing here...";
+                const hasFloating = !!state.canvas.floatingImage;
+                const hasCanvas = state.canvas.isDirty || hasFloating;
+
+                if (!hasText && !hasCanvas) {
+                    alert('You haven’t created anything yet. Please add content before downloading.');
+                    return;
+                }
+
+                // Show branding footer temporarily
+                const footer = document.getElementById('pdf-footer');
+                footer.classList.remove('hidden');
+
+                let elementToPrint;
+                let opt = {
+                    margin: 0.5,
+                    filename: `SyncPad_${new Date().toISOString().slice(0, 10)}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+
+                if (currentMode === 'text') {
+                    // Clone the editor content to add footer
+                    const content = dom.text.editor.cloneNode(true);
+                    const wrapper = document.createElement('div');
+                    wrapper.style.padding = "20px";
+                    wrapper.appendChild(content);
+
+                    // Append footer cloned
+                    const footerClone = footer.cloneNode(true);
+                    footerClone.classList.remove('hidden');
+                    footerClone.style.marginTop = "50px";
+                    footerClone.style.textAlign = "right";
+                    footerClone.style.fontFamily = "sans-serif";
+                    footerClone.style.color = "#777";
+                    footerClone.style.fontSize = "12px";
+                    wrapper.appendChild(footerClone);
+
+                    elementToPrint = wrapper;
+
+                    // Generate
+                    html2pdf().set(opt).from(elementToPrint).save().then(() => {
+                        footer.classList.add('hidden'); // Hide again just in case
+                    });
+
+                } else {
+                    // Canvas Mode
+                    // For canvas, we print the canvas image + footer
+                    const wrapper = document.createElement('div');
+
+                    const img = new Image();
+                    img.src = dom.canvas.element.toDataURL('image/png');
+                    img.style.width = "100%";
+
+                    const footerClone = footer.cloneNode(true);
+                    footerClone.classList.remove('hidden');
+                    footerClone.style.marginTop = "20px";
+                    footerClone.style.textAlign = "right";
+
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(footerClone);
+
+                    elementToPrint = wrapper;
+
+                    // Wait for image to load
+                    img.onload = () => {
+                        html2pdf().set(opt).from(elementToPrint).save().then(() => {
+                            footer.classList.add('hidden');
+                        });
+                    };
+                }
+            });
+
+            // Go!
+            init();
+        });
+    </script>
+
+    <!-- External Scripts -->
+    <script src="js/main.js"></script>
+    <script src="js/text.js"></script>
 </body>
 
 </html>

@@ -1,1221 +1,590 @@
-// State management
-let currentMode = 'text';
-let currentPage = 'home';
-let isDrawing = false;
-let currentFontSize = 14;
-let currentColor = 'black';
-let currentAlignment = 'left';
-let currentStrokeSize = 3;
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("SyncPad Script Loaded");
 
-// Canvas elements
-let canvas, ctx, canvasCollab, ctxCollab;
-
-// User colors for collaboration
-const userColors = ['black', 'red', 'blue', 'green'];
-let currentUserIndex = 0;
-let currentUserColor = userColors[currentUserIndex];
-
-// Socket.io client for real-time collaboration
-let socket = null;
-let currentRoomId = null;
-let isConnected = false;
-let connectedUsers = [];
-let isReceivingUpdate = false; // Flag to prevent echo when receiving updates
-
-// Shape drawing state
-let currentDrawTool = 'freehand'; // 'freehand', 'rectangle', 'circle'
-let shapes = []; // Array to store created shapes
-let isCreatingShape = false;
-let shapeStartPos = null;
-
-// Initialize
-window.addEventListener('load', () => {
-    canvas = document.getElementById('drawingCanvas');
-    canvasCollab = document.getElementById('drawingCanvasCollab');
-
-    if (canvas) {
-        ctx = canvas.getContext('2d');
-        setCanvasSize();
-        setupCanvas(canvas, ctx);
-    }
-
-    if (canvasCollab) {
-        ctxCollab = canvasCollab.getContext('2d');
-        setCanvasSize();
-        setupCanvas(canvasCollab, ctxCollab);
-    }
-
-    // Initialize controls
-    updateFontSizeDisplay();
-    selectColor('black');
-    setAlignment('left');
-    generateShareLink();
-
-    // Setup both editors
-    setupEditor('textEditor');
-    setupEditor('textEditorCollab');
-});
-
-window.addEventListener('resize', () => {
-    setCanvasSize();
-});
-
-// ============================================================================
-// SOCKET.IO CLIENT - REAL-TIME COLLABORATION
-// ============================================================================
-
-function initializeSocket() {
-    // Connect to Socket.io server
-    socket = io(window.location.origin);
-
-    socket.on('connect', () => {
-        console.log('Connected to server');
-        isConnected = true;
-
-        // If we're on collab page and have a room ID, join it
-        if (currentPage === 'collab' && currentRoomId) {
-            socket.emit('join-room', currentRoomId);
+    // --- State ---
+    let currentMode = 'text';
+    const state = {
+        canvas: {
+            isDrawing: false,
+            isDirty: false,
+            tool: 'brush',
+            brushType: 'pen',
+            color: '#000000',
+            size: 5,
+            startX: 0,
+            startY: 0,
+            snapshot: null,
+            floatingImage: null
         }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-        isConnected = false;
-    });
-
-    // Handle room full error
-    socket.on('room-full', (data) => {
-        alert(data.message);
-        // Redirect back to home page
-        if (currentPage === 'collab') {
-            goToHome();
-        }
-    });
-
-    // Receive initial room state when joining
-    socket.on('room-state', (state) => {
-        console.log('Received room state:', state);
-        isReceivingUpdate = true;
-
-        // Set user color
-        currentUserColor = state.yourColor;
-        const colorIndex = userColors.indexOf(state.yourColor);
-        if (colorIndex !== -1) {
-            currentUserIndex = colorIndex;
-        }
-
-        // Update user list
-        connectedUsers = state.users;
-        updateUserListUI(state.users);
-
-        // Load content
-        const editor = document.getElementById('textEditorCollab');
-        if (editor && state.content.html) {
-            editor.innerHTML = state.content.html;
-        }
-
-        // Load drawings
-        if (state.drawings && state.drawings.length > 0 && canvasCollab) {
-            const ctx = canvasCollab.getContext('2d');
-            state.drawings.forEach(stroke => {
-                drawStrokeOnCanvas(ctx, stroke);
-            });
-        }
-
-        isReceivingUpdate = false;
-    });
-
-    // Handle text updates from other users
-    socket.on('text-update', (data) => {
-        if (currentPage !== 'collab') return;
-
-        isReceivingUpdate = true;
-        const editor = document.getElementById('textEditorCollab');
-        if (editor) {
-            // Save cursor position
-            const selection = window.getSelection();
-            let cursorPos = 0;
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                cursorPos = range.startOffset;
+    };
+    const dom = {
+        nav: {
+            linksBtn: document.getElementById('links-btn'),
+            mobileMenu: document.getElementById('mobile-menu'),
+            downloadBtn: document.getElementById('download-btn'),
+        },
+        mode: {
+            btns: document.querySelectorAll('.mode-btn'),
+            containers: {
+                text: document.getElementById('text-container'),
+                canvas: document.getElementById('canvas-container')
             }
+        },
+        text: {
+            editor: document.getElementById('editor'),
+            toolbar: document.querySelector('.text-toolbar'),
+            fontFamily: document.getElementById('font-family'),
+            fontSize: document.getElementById('font-size'),
+            textColor: document.getElementById('text-color'),
+            highlightColor: document.getElementById('highlight-color'),
+            clearBtn: document.getElementById('clear-text-btn'),
+            cmdBtns: document.querySelectorAll('.text-toolbar .tool-btn[data-cmd]'),
+            imgBtn: document.getElementById('text-img-btn'),
+            imgInput: document.getElementById('text-img-input')
+        },
+        canvas: {
+            element: document.getElementById('drawing-canvas'),
+            ctx: document.getElementById('drawing-canvas').getContext('2d'),
+            wrapper: document.querySelector('.canvas-wrapper'),
 
-            // Update content
-            editor.innerHTML = data.content.html;
+            brushTypeSelect: document.getElementById('brush-type'),
+            brushBtn: document.getElementById('tool-brush'),
+            eraserBtn: document.getElementById('tool-eraser'),
+            shapeBtns: document.querySelectorAll('.shape-btn'),
 
-            // Restore cursor position (simplified)
-            try {
-                const range = document.createRange();
-                const sel = window.getSelection();
-                if (editor.childNodes.length > 0) {
-                    range.setStart(editor.childNodes[0], Math.min(cursorPos, editor.textContent.length));
-                    range.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-            } catch (e) {
-                // Cursor restoration failed, not critical
-            }
+            // New Stroke UI
+            strokeBtns: document.querySelectorAll('.stroke-btn'),
+
+            colorInput: document.getElementById('stroke-color'),
+            clearBtn: document.getElementById('clear-canvas-btn'),
+
+            imgBtn: document.getElementById('canvas-img-btn'),
+            imgInput: document.getElementById('canvas-img-input')
         }
-        isReceivingUpdate = false;
-    });
-
-    // Handle drawing updates from other users
-    socket.on('drawing-update', (stroke) => {
-        if (currentPage !== 'collab' || !canvasCollab) return;
-
-        const ctx = canvasCollab.getContext('2d');
-        drawStrokeOnCanvas(ctx, stroke);
-    });
-
-    // Handle canvas clear
-    socket.on('canvas-cleared', () => {
-        if (currentPage !== 'collab' || !canvasCollab) return;
-
-        const ctx = canvasCollab.getContext('2d');
-        ctx.clearRect(0, 0, canvasCollab.width, canvasCollab.height);
-    });
-
-    // Handle user joined
-    socket.on('user-joined', (user) => {
-        console.log('User joined:', user);
-        connectedUsers.push(user);
-        updateUserListUI(connectedUsers);
-    });
-
-    // Handle user left
-    socket.on('user-left', (userId) => {
-        console.log('User left:', userId);
-        connectedUsers = connectedUsers.filter(u => u.id !== userId);
-        updateUserListUI(connectedUsers);
-    });
-
-    // Handle users update
-    socket.on('users-update', (users) => {
-        connectedUsers = users;
-        updateUserListUI(users);
-    });
-}
-
-// Helper function to draw a stroke on canvas
-function drawStrokeOnCanvas(ctx, stroke) {
-    if (!stroke.points || stroke.points.length < 2) return;
-
-    ctx.beginPath();
-    ctx.strokeStyle = stroke.color || 'black';
-    ctx.lineWidth = stroke.size || 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-    }
-    ctx.stroke();
-}
-
-// Update user list UI
-function updateUserListUI(users) {
-    const userListDesktop = document.querySelector('.user-list-desktop');
-    const colorDisplay = document.getElementById('currentUserColor');
-
-    if (colorDisplay) {
-        colorDisplay.textContent = currentUserColor.charAt(0).toUpperCase() + currentUserColor.slice(1);
-        colorDisplay.style.color = currentUserColor;
-    }
-
-    if (!userListDesktop) return;
-
-    // Clear existing user items
-    userListDesktop.innerHTML = '';
-
-    // Add user items
-    users.forEach((user, index) => {
-        const userItem = document.createElement('div');
-        userItem.className = 'user-item';
-
-        const userCircle = document.createElement('div');
-        userCircle.className = `user-circle user-${user.color}`;
-
-        // Highlight current user's circle
-        if (user.color === currentUserColor) {
-            userCircle.style.border = '3px solid #1a73e8';
-            userCircle.style.boxShadow = '0 0 0 2px rgba(26, 115, 232, 0.3)';
-        }
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'user-name-input';
-        nameInput.placeholder = user.color === currentUserColor ? 'Your name' : 'Name';
-        nameInput.value = user.name || '';
-        nameInput.maxLength = 20;
-
-        // Only allow editing own name
-        if (user.color === currentUserColor) {
-            nameInput.addEventListener('change', (e) => {
-                if (socket && isConnected) {
-                    socket.emit('username-change', e.target.value);
-                }
-            });
-        } else {
-            nameInput.disabled = true;
-            nameInput.style.background = '#f5f5f5';
-        }
-
-        userItem.appendChild(userCircle);
-        userItem.appendChild(nameInput);
-        userListDesktop.appendChild(userItem);
-    });
-
-    // Update mobile user count
-    const userCountText = document.querySelector('.user-count-text');
-    if (userCountText) {
-        userCountText.textContent = users.length;
-    }
-}
-
-// Broadcast text changes to other users
-function broadcastTextChange() {
-    if (!socket || !isConnected || currentPage !== 'collab' || isReceivingUpdate) return;
-
-    const editor = document.getElementById('textEditorCollab');
-    if (!editor) return;
-
-    const content = {
-        text: editor.innerText || editor.textContent || '',
-        html: editor.innerHTML
     };
 
-    socket.emit('text-change', content);
-}
+    // --- Initialization ---
+    function init() {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
 
-// ============================================================================
-// END SOCKET.IO CLIENT
-// ============================================================================
-
-
-// Set canvas size
-function setCanvasSize() {
-    const canvases = [
-        { canvas: canvas, ctx: ctx },
-        { canvas: canvasCollab, ctx: ctxCollab }
-    ];
-
-    canvases.forEach(({ canvas }) => {
-        if (!canvas) return;
-
-        if (window.innerWidth < 768) {
-            canvas.width = window.innerWidth - 40;
-            canvas.height = 500;
-        } else if (window.innerWidth < 1024) {
-            canvas.width = 700;
-            canvas.height = 990;
-        } else {
-            canvas.width = 800;
-            canvas.height = 1130;
-        }
-    });
-}
-
-// Setup editor with proper event listeners
-function setupEditor(editorId) {
-    const editor = document.getElementById(editorId);
-    if (!editor) return;
-
-    // Add placeholder text on first load
-    if (!editor.textContent.trim() && !editor.querySelector('.placeholder-text')) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'placeholder-text';
-        placeholder.style.color = '#999';
-        placeholder.style.fontStyle = 'italic';
-        placeholder.textContent = 'Click on the logo SyncPad to collaborate with others.';
-        editor.appendChild(placeholder);
-    }
-
-    // Handle shape creation in text mode causing drag
-    let isEditorDragging = false;
-    let editorStartPos = null;
-
-    editor.addEventListener('mousedown', (e) => {
-        // Only if we have a shape tool selected in text mode
-        if (currentMode === 'text' && currentDrawTool && ['freehand', 'rectangle', 'circle'].includes(currentDrawTool)) {
-            // Check if clicking on existing shape or resize handle
-            if (e.target.closest('.shape-container')) return;
-
-            isEditorDragging = true;
-            editorStartPos = { x: e.clientX, y: e.clientY };
-            e.preventDefault(); // Prevent text selection
-        }
-    });
-
-    editor.addEventListener('mousemove', (e) => {
-        if (!isEditorDragging) return;
-        e.preventDefault();
-        // Optional: Draw a visual indicator/phantom box here
-    });
-
-    editor.addEventListener('mouseup', (e) => {
-        if (!isEditorDragging || !editorStartPos) return;
-
-        const width = Math.abs(e.clientX - editorStartPos.x);
-        const height = Math.abs(e.clientY - editorStartPos.y);
-
-        // Create shape if drag was significant
-        if (width > 20 && height > 20) {
-            createShapeInEditor(currentDrawTool, width, height);
-
-            // Auto-deselect tool after usage for smoother typing flow?
-            // User requested: "if somebody draws something... selected into an object"
-            // Keeping it active allows multiple shapes. 
-            // But let's keep the tool active as per standard drawing apps.
-        }
-
-        isEditorDragging = false;
-        editorStartPos = null;
-    });
-
-    // Remove placeholder when user starts typing
-    editor.addEventListener('input', (e) => {
-        const placeholder = editor.querySelector('.placeholder-text');
-        if (placeholder) {
-            const textContent = editor.textContent.trim();
-            const placeholderText = placeholder.textContent.trim();
-            if (textContent && textContent !== placeholderText) {
-                placeholder.remove();
-            }
-        }
-
-        // Apply current formatting to newly typed text
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const container = range.startContainer;
-
-            // If we just typed text (not pasting), apply formatting
-            if (container.nodeType === Node.TEXT_NODE && container.textContent.length > 0) {
-                const parent = container.parentElement;
-
-                // Check if parent already has formatting
-                const needsFormatting = !parent.style.fontSize ||
-                    !parent.style.color ||
-                    !parent.style.fontFamily;
-
-                if (needsFormatting || parent === editor) {
-                    // Get font family
-                    const fontFamily = currentPage === 'collab' ?
-                        document.getElementById('fontFamilyCollab').value :
-                        document.getElementById('fontFamily').value;
-
-                    // Wrap the text node in a span with current formatting
-                    const span = document.createElement('span');
-                    span.style.fontSize = currentFontSize + 'px';
-                    span.style.color = currentColor;
-                    span.style.fontFamily = fontFamily;
-
-                    // Apply bold, italic, underline if active
-                    const isCollab = currentPage === 'collab';
-                    const boldBtn = document.getElementById(isCollab ? 'boldBtnCollab' : 'boldBtn');
-                    const italicBtn = document.getElementById(isCollab ? 'italicBtnCollab' : 'italicBtn');
-                    const underlineBtn = document.getElementById(isCollab ? 'underlineBtnCollab' : 'underlineBtn');
-
-                    if (boldBtn?.classList.contains('active')) {
-                        span.style.fontWeight = 'bold';
-                    }
-                    if (italicBtn?.classList.contains('active')) {
-                        span.style.fontStyle = 'italic';
-                    }
-                    if (underlineBtn?.classList.contains('active')) {
-                        span.style.textDecoration = 'underline';
-                    }
-
-                    // Only wrap if not already in a formatted span
-                    if (parent === editor || parent.tagName !== 'SPAN') {
-                        try {
-                            const textContent = container.textContent;
-                            span.textContent = textContent;
-                            container.parentNode.replaceChild(span, container);
-
-                            // Restore cursor position
-                            const newRange = document.createRange();
-                            const sel = window.getSelection();
-                            newRange.setStart(span.firstChild, textContent.length);
-                            newRange.collapse(true);
-                            sel.removeAllRanges();
-                            sel.addRange(newRange);
-                        } catch (e) {
-                            console.log('Formatting error:', e);
-                        }
-                    }
+        // Robust Resize: Observer
+        if (window.ResizeObserver) {
+            const ro = new ResizeObserver(() => {
+                // Determine if visible
+                if (dom.canvas.wrapper.offsetParent !== null) {
+                    resizeCanvas();
                 }
-            }
+            });
+            ro.observe(dom.canvas.wrapper);
         }
 
-        // Track collaboration colors if on collab page
-        if (currentPage === 'collab' && editorId === 'textEditorCollab') {
-            markUserText(editor, currentUserColor);
-
-            // Broadcast text changes to other users
-            broadcastTextChange();
-        }
-
-        // Save state for undo/redo (debounce this in production, but direct for now)
-        saveState();
-    });
-
-    // Track selection for updating controls
-    editor.addEventListener('mouseup', () => {
-        updateControlsFromSelection(editor);
-    });
-
-    editor.addEventListener('keyup', () => {
-        updateControlsFromSelection(editor);
-    });
-
-    // Update format button states on selection change
-    editor.addEventListener('selectionchange', () => {
-        updateFormatButtonStates();
-    });
-}
-
-// Apply current formatting to new text
-function applyCurrentFormatting() {
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
-
-    if (!editor) return;
-
-    // Get font family
-    const fontFamily = isCollab ?
-        document.getElementById('fontFamilyCollab').value :
-        document.getElementById('fontFamily').value;
-
-    // Apply text alignment to the editor
-    editor.style.textAlign = currentAlignment;
-
-    // Apply formatting to selected text or prepare for next input
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-
-        if (!range.collapsed) {
-            // Apply to selection
-            document.execCommand('fontSize', false, '7'); // Use largest size
-            document.execCommand('foreColor', false, currentColor);
-            document.execCommand('fontName', false, fontFamily);
-
-            // Fix font size with actual pixel size
-            const selectedText = range.toString();
-            if (selectedText) {
-                const span = document.createElement('span');
-                span.style.fontSize = currentFontSize + 'px';
-                span.style.color = currentColor;
-                span.style.fontFamily = fontFamily;
-
-                try {
-                    range.surroundContents(span);
-                } catch (e) {
-                    // If surroundContents fails, use different approach
-                    const contents = range.extractContents();
-                    span.appendChild(contents);
-                    range.insertNode(span);
-                }
-            }
-        }
-    }
-}
-
-// Update controls based on current selection
-function updateControlsFromSelection(editor) {
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-
-    const range = selection.getRangeAt(0);
-    if (range.collapsed) return;
-
-    const container = range.commonAncestorContainer;
-    const element = container.nodeType === Node.TEXT_NODE ?
-        container.parentElement : container;
-
-    if (element) {
-        const styles = window.getComputedStyle(element);
-
-        // Update font size
-        if (styles.fontSize) {
-            const size = parseInt(styles.fontSize);
-            if (size >= 12 && size <= 24) {
-                currentFontSize = size;
-                updateFontSizeDisplay();
-            }
-        }
-
-        // Update color
-        if (styles.color) {
-            const rgb = styles.color;
-            if (rgb.includes('0, 0, 0') || rgb === 'black') selectColor('black');
-            else if (rgb.includes('255, 0, 0') || rgb === 'red') selectColor('red');
-            else if (rgb.includes('0, 0, 255') || rgb === 'blue') selectColor('blue');
-            else if (rgb.includes('0, 128, 0') || rgb === 'green') selectColor('green');
-        }
-    }
-}
-
-// Mode switching
-function switchMode(mode, buttonElement) {
-    currentMode = mode;
-    const isCollab = currentPage === 'collab';
-
-    const textEditor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
-    const canvasContainer = isCollab ?
-        document.getElementById('canvasContainerCollab') :
-        document.getElementById('canvasContainer');
-
-    // Update buttons
-    if (buttonElement) {
-        const nav = buttonElement.closest('.menu-bar');
-        const buttons = nav.querySelectorAll('.mode-btn');
-        buttons.forEach(b => b.classList.remove('active'));
-        buttonElement.classList.add('active');
-    }
-
-    // Handle UI changes
-    if (mode === 'text') {
-        if (textEditor) textEditor.style.display = 'block';
-        if (canvasContainer) canvasContainer.style.display = 'none';
-        showTextControls();
-        const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
-        if (canvas) {
-            canvas.style.pointerEvents = 'none'; // text mode default
-        }
-        // Deselect any active shape tools
-        currentDrawTool = null;
-        document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
-    } else {
-        // Canvas/Draw Mode
-        if (textEditor) textEditor.style.display = 'none';
-        if (canvasContainer) {
-            canvasContainer.style.display = 'flex';
-            // Re-initialize canvas if needed
-            const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
-            if (canvas) {
-                setCanvasSize();
-                if (!canvas.getContext('2d').getImageData(0, 0, 1, 1).data[3]) {
-                    // Canvas is empty, clear it
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
-            }
-        }
-        showDrawControls();
-    }
-}
-
-// Show/hide controls based on mode
-function showTextControls() {
-    const menuBars = document.querySelectorAll('.menu-bar');
-    menuBars.forEach(menuBar => {
-        const textControls = menuBar.querySelectorAll('.text-control');
-        textControls.forEach(control => {
-            control.style.display = control.classList.contains('font-size-control') ||
-                control.classList.contains('align-controls') ||
-                control.classList.contains('shape-tools') ? 'flex' : ''; // Enable shape tools in text mode
+        // Before Unload Warning
+        window.addEventListener('beforeunload', (e) => {
+            e.preventDefault();
+            e.returnValue = 'Data will be lost!';
         });
-
-        const strokeControls = menuBar.querySelectorAll('.stroke-size-control');
-        strokeControls.forEach(control => control.style.display = 'none');
-
-        // Hide Canvas specific tools
-        const canvasTools = menuBar.querySelectorAll('.draw-control');
-        canvasTools.forEach(control => control.style.display = 'none');
-    });
-}
-
-function showDrawControls() {
-    const menuBars = document.querySelectorAll('.menu-bar');
-    menuBars.forEach(menuBar => {
-        const textControls = menuBar.querySelectorAll('.text-control');
-        textControls.forEach(control => control.style.display = 'none');
-
-        const strokeControls = menuBar.querySelectorAll('.stroke-size-control');
-        strokeControls.forEach(control => control.style.display = 'flex');
-
-        const canvasTools = menuBar.querySelectorAll('.draw-control');
-        canvasTools.forEach(tool => tool.style.display = 'flex');
-    });
-
-    // Set freehand as default
-    selectDrawTool('freehand');
-}
-
-// Font size controls
-function changeFontSize(delta) {
-    currentFontSize = Math.max(12, Math.min(24, currentFontSize + delta));
-    updateFontSizeDisplay();
-    applyCurrentFormatting();
-}
-
-function updateFontSizeDisplay() {
-    const homeDisplay = document.getElementById('fontSizeDisplay');
-    const collabDisplay = document.getElementById('fontSizeDisplayCollab');
-
-    if (homeDisplay) homeDisplay.textContent = currentFontSize;
-    if (collabDisplay) collabDisplay.textContent = currentFontSize;
-}
-
-function showFontSizePicker() {
-    const isCollab = currentPage === 'collab';
-    const display = isCollab ?
-        document.getElementById('fontSizeDisplayCollab') :
-        document.getElementById('fontSizeDisplay');
-
-    if (!display) return;
-
-    // Create dropdown
-    const dropdown = document.createElement('select');
-    dropdown.style.position = 'absolute';
-    dropdown.style.zIndex = '1000';
-    dropdown.style.padding = '4px';
-    dropdown.style.border = '1px solid #ccc';
-    dropdown.style.borderRadius = '4px';
-    dropdown.style.fontSize = '13px';
-    dropdown.style.background = 'white';
-
-    // Add options
-    for (let i = 12; i <= 24; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = i;
-        if (i === currentFontSize) option.selected = true;
-        dropdown.appendChild(option);
     }
 
-    // Position dropdown
-    const rect = display.getBoundingClientRect();
-    dropdown.style.top = (rect.bottom + 2) + 'px';
-    dropdown.style.left = rect.left + 'px';
+    // --- UI Logic ---
 
-    // Add to body
-    document.body.appendChild(dropdown);
-    dropdown.focus();
-
-    // Handle selection
-    dropdown.addEventListener('change', () => {
-        currentFontSize = parseInt(dropdown.value);
-        updateFontSizeDisplay();
-        applyCurrentFormatting();
-        document.body.removeChild(dropdown);
+    // Mobile Menu
+    dom.nav.linksBtn.addEventListener('click', () => {
+        dom.nav.mobileMenu.classList.toggle('hidden');
     });
 
-    // Remove on blur
-    dropdown.addEventListener('blur', () => {
-        if (document.body.contains(dropdown)) {
-            document.body.removeChild(dropdown);
-        }
-    });
-
-    // Remove on click outside
-    setTimeout(() => {
-        const clickHandler = (e) => {
-            if (!dropdown.contains(e.target) && e.target !== display) {
-                if (document.body.contains(dropdown)) {
-                    document.body.removeChild(dropdown);
-                }
-                document.removeEventListener('click', clickHandler);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', clickHandler), 0);
-    }, 0);
-}
-
-// Stroke size controls for drawing
-function changeStrokeSize(delta) {
-    currentStrokeSize = Math.max(1, Math.min(20, currentStrokeSize + delta));
-    const homeDisplay = document.getElementById('strokeSizeDisplay');
-    const collabDisplay = document.getElementById('strokeSizeDisplayCollab');
-
-    if (homeDisplay) homeDisplay.textContent = currentStrokeSize;
-    if (collabDisplay) collabDisplay.textContent = currentStrokeSize;
-}
-
-// Color selection
-function selectColor(color) {
-    currentColor = color;
-
-    // Update all color circles
-    const colorPickers = document.querySelectorAll('.color-picker');
-    colorPickers.forEach(picker => {
-        const circles = picker.querySelectorAll('.color-circle');
-        circles.forEach(circle => {
-            if (circle.dataset.color === color) {
-                circle.classList.add('selected');
-            } else {
-                circle.classList.remove('selected');
-            }
+    // Mode Switching
+    dom.mode.btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            switchMode(mode);
         });
     });
 
-    if (currentMode === 'text') {
-        applyCurrentFormatting();
-    }
-}
+    function switchMode(mode) {
+        currentMode = mode;
 
-// Text alignment
-function setAlignment(align) {
-    currentAlignment = align;
+        // Update All Buttons (Sync Desktop/Mobile)
+        dom.mode.btns.forEach(b => {
+            b.classList.toggle('active', b.dataset.mode === mode);
+        });
 
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
+        // Update Containers
+        dom.mode.containers.text.classList.toggle('active', mode === 'text');
+        dom.mode.containers.canvas.classList.toggle('active', mode === 'canvas');
 
-    if (!editor || currentMode !== 'text') return;
-
-    editor.focus();
-
-    // Use execCommand for alignment
-    if (align === 'left') {
-        document.execCommand('justifyLeft', false, null);
-    } else if (align === 'center') {
-        document.execCommand('justifyCenter', false, null);
-    } else if (align === 'right') {
-        document.execCommand('justifyRight', false, null);
+        // Resize canvas if showing
+        if (mode === 'canvas') {
+            setTimeout(resizeCanvas, 50);
+        }
     }
 
-    // Update all alignment buttons
-    const buttons = ['alignLeft', 'alignCenter', 'alignRight',
-        'alignLeftCollab', 'alignCenterCollab', 'alignRightCollab'];
+    // --- Text Editor Logic ---
 
-    buttons.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) btn.classList.remove('active');
+    // Command Buttons
+    dom.text.cmdBtns.forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevent focus loss
+            const cmd = btn.dataset.cmd;
+            document.execCommand(cmd, false, null);
+        });
     });
 
-    if (align === 'left') {
-        const leftBtn = document.getElementById('alignLeft');
-        const leftBtnCollab = document.getElementById('alignLeftCollab');
-        if (leftBtn) leftBtn.classList.add('active');
-        if (leftBtnCollab) leftBtnCollab.classList.add('active');
-    } else if (align === 'center') {
-        const centerBtn = document.getElementById('alignCenter');
-        const centerBtnCollab = document.getElementById('alignCenterCollab');
-        if (centerBtn) centerBtn.classList.add('active');
-        if (centerBtnCollab) centerBtnCollab.classList.add('active');
-    } else if (align === 'right') {
-        const rightBtn = document.getElementById('alignRight');
-        const rightBtnCollab = document.getElementById('alignRightCollab');
-        if (rightBtn) rightBtn.classList.add('active');
-        if (rightBtnCollab) rightBtnCollab.classList.add('active');
-    }
+    // Font Family
+    dom.text.fontFamily.addEventListener('change', (e) => {
+        document.execCommand('fontName', false, e.target.value);
+        dom.text.editor.focus();
+    });
 
-    applyCurrentFormatting();
-}
+    // Font Size
+    dom.text.fontSize.addEventListener('change', (e) => {
+        document.execCommand('fontSize', false, e.target.value);
+        dom.text.editor.focus();
+    });
 
-// Format toggles (Bold, Italic, Underline)
-function toggleFormat(format) {
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
+    // Colors
+    dom.text.textColor.addEventListener('input', (e) => {
+        document.execCommand('foreColor', false, e.target.value);
+        dom.text.editor.focus();
+    });
 
-    if (!editor || currentMode !== 'text') return;
+    dom.text.highlightColor.addEventListener('input', (e) => {
+        document.execCommand('hiliteColor', false, e.target.value);
+        dom.text.editor.focus();
+    });
 
-    if (!editor || currentMode !== 'text') return;
-
-    // Check selection first
-    const selection = window.getSelection();
-
-    // If there's selected text, apply formatting to it
-    if (selection.rangeCount > 0 && !selection.getRangeAt(0).collapsed) {
-        editor.focus();
-        document.execCommand(format, false, null);
-    }
-
-    // Update button states (Desktop and Mobile)
-    const targetBtnId = format + (isCollab ? 'BtnCollab' : 'Btn');
-    const mobileBtnId = format + 'BtnMobile';
-
-    const isActive = document.queryCommandState(format);
-
-    const targetBtn = document.getElementById(targetBtnId);
-    if (targetBtn) targetBtn.classList.toggle('active', isActive);
-
-    const mobileBtn = document.getElementById(mobileBtnId);
-    if (mobileBtn) mobileBtn.classList.toggle('active', isActive);
-
-}
-
-// Update format button states based on current selection
-function updateFormatButtonStates() {
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
-
-    if (!editor || currentMode !== 'text') return;
-
-    const formats = ['bold', 'italic', 'underline'];
-    formats.forEach(format => {
-        const btnId = format + (isCollab ? 'BtnCollab' : 'Btn');
-        const btn = document.getElementById(btnId);
-        if (btn) {
-            const isActive = document.queryCommandState(format);
-            btn.classList.toggle('active', isActive);
+    // Clear Text
+    dom.text.clearBtn.addEventListener('click', () => {
+        if (confirm('Clear all text?')) {
+            dom.text.editor.innerHTML = '<div class="placeholder">Start typing here...</div>';
         }
     });
-}
 
-// Mark text with user color underline for collaboration
-function markUserText(editor, userColor) {
-    setTimeout(() => {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        if (range.collapsed) {
-            const textNode = range.startContainer;
-            if (textNode.nodeType === Node.TEXT_NODE && textNode.textContent.length > 0) {
-                const lastChar = textNode.textContent.length - 1;
-                const charRange = document.createRange();
-                charRange.setStart(textNode, Math.max(0, lastChar));
-                charRange.setEnd(textNode, textNode.textContent.length);
-
-                const span = document.createElement('span');
-                span.style.textDecoration = 'underline';
-                span.style.textDecorationColor = userColor;
-                span.style.textDecorationThickness = '2px';
-                span.className = `user-text user-${userColor}`;
-
-                try {
-                    charRange.surroundContents(span);
-                } catch (e) {
-                    const contents = charRange.extractContents();
-                    span.appendChild(contents);
-                    charRange.insertNode(span);
-                }
-            }
+    // Handle Placeholder on Focus
+    dom.text.editor.addEventListener('focus', () => {
+        if (dom.text.editor.textContent.trim() === 'Start typing here...') {
+            dom.text.editor.innerHTML = '';
         }
-    }, 10);
-}
+    });
 
-// Apply formatting (called when changing font family)
-function applyFormatting() {
-    applyCurrentFormatting();
-}
-
-// Canvas drawing
-function setupCanvas(canvas, ctx) {
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', stopDrawing);
-}
-
-function getPosition(e, canvas) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    if (e.touches && e.touches[0]) {
-        return {
-            x: (e.touches[0].clientX - rect.left) * scaleX,
-            y: (e.touches[0].clientY - rect.top) * scaleY
-        };
-    }
-    return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-    };
-}
-
-function startDrawing(e) {
-    if (currentMode !== 'draw') return;
-    e.preventDefault();
-
-    const canvas = e.target;
-    const ctx = canvas.getContext('2d');
-    const pos = getPosition(e, canvas);
-
-    // If creating a shape (rectangle or circle), start shape creation
-    if (currentDrawTool === 'rectangle' || currentDrawTool === 'circle') {
-        isCreatingShape = true;
-        shapeStartPos = pos;
-        return;
-    }
-
-    // Otherwise, freehand drawing
-    isDrawing = true;
-
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-    ctx.lineWidth = currentStrokeSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = currentColor;
-
-    // Initialize stroke points for broadcasting
-    if (currentPage === 'collab' && canvas === canvasCollab) {
-        window.currentStrokePoints = [pos];
-    }
-}
-
-function draw(e) {
-    if (!isDrawing || currentMode !== 'draw') return;
-    e.preventDefault();
-    const canvas = e.target;
-    const ctx = canvas.getContext('2d');
-    const pos = getPosition(e, canvas);
-
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-
-    // Collect stroke points for broadcasting
-    if (currentPage === 'collab' && canvas === canvasCollab && window.currentStrokePoints) {
-        window.currentStrokePoints.push(pos);
-    }
-}
-
-function stopDrawing(e) {
-    if (isDrawing) {
-        e.preventDefault();
-
-        // Broadcast the complete stroke to other users
-        if (currentPage === 'collab' && window.currentStrokePoints && window.currentStrokePoints.length > 0) {
-            const strokeData = {
-                points: window.currentStrokePoints,
-                color: currentColor,
-                size: currentStrokeSize
+    // Text Image Upload
+    dom.text.imgBtn.addEventListener('click', () => dom.text.imgInput.click());
+    dom.text.imgInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (red) => {
+                document.execCommand('insertImage', false, red.target.result);
             };
+            reader.readAsDataURL(file);
+        }
+        e.target.value = ''; // reset
+    });
 
-            if (socket && isConnected) {
-                socket.emit('draw-stroke', strokeData);
+
+    // --- Canvas Logic ---
+
+    function resizeCanvas() {
+        // Save current content
+        const dataUrl = dom.canvas.element.toDataURL();
+        const img = new Image();
+        img.src = dataUrl;
+
+        // Resize
+        const rect = dom.canvas.wrapper.getBoundingClientRect();
+        dom.canvas.element.width = rect.width;
+        dom.canvas.element.height = rect.height;
+
+        // Restore content
+        img.onload = () => {
+            dom.canvas.ctx.drawImage(img, 0, 0);
+        };
+        // Re-set styles
+        updateCanvasContext();
+    }
+
+    function updateCanvasContext() {
+        const ctx = dom.canvas.ctx;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = state.canvas.size;
+
+        if (state.canvas.tool === 'eraser') {
+            ctx.strokeStyle = '#ffffff';
+            ctx.globalAlpha = 1.0;
+        } else {
+            ctx.strokeStyle = state.canvas.color;
+
+            // Brush styles
+            if (state.canvas.tool === 'brush') {
+                if (state.canvas.brushType === 'pen') {
+                    ctx.globalAlpha = 1.0;
+                    ctx.lineCap = 'round';
+                } else if (state.canvas.brushType === 'marker') {
+                    ctx.globalAlpha = 0.5;
+                    ctx.lineCap = 'square';
+                } else if (state.canvas.brushType === 'pencil') {
+                    ctx.globalAlpha = 0.8;
+                }
+            } else {
+                // Shapes
+                ctx.globalAlpha = 1.0;
             }
-
-            window.currentStrokePoints = null;
         }
     }
 
-    // Handle shape creation
-    if (isCreatingShape && shapeStartPos) {
-        const canvas = e.target;
-        const endPos = getPosition(e, canvas);
+    // Tool Selection
+    dom.canvas.brushTypeSelect.addEventListener('change', (e) => {
+        state.canvas.brushType = e.target.value;
+        setCanvasTool('brush'); // switch to brush if not already
+    });
 
-        const width = Math.abs(endPos.x - shapeStartPos.x);
-        const height = Math.abs(endPos.y - shapeStartPos.y);
+    dom.canvas.brushBtn.addEventListener('click', () => setCanvasTool('brush'));
+    dom.canvas.eraserBtn.addEventListener('click', () => setCanvasTool('eraser'));
+    dom.canvas.shapeBtns.forEach(btn => {
+        btn.addEventListener('click', () => setCanvasTool(btn.dataset.shape));
+    });
 
-        // Only create if shape is large enough
-        if (width > 50 && height > 50) {
-            // Switch to text mode to insert shape
-            const wasInDrawMode = currentMode === 'draw';
-            if (wasInDrawMode) {
-                switchMode('text');
-            }
+    function setCanvasTool(tool) {
+        state.canvas.tool = tool;
 
-            // Create shape in editor
-            createShapeInEditor(currentDrawTool, width, height);
+        // Update UI
+        dom.canvas.brushBtn.classList.toggle('active', tool === 'brush');
+        dom.canvas.eraserBtn.classList.toggle('active', tool === 'eraser');
+        dom.canvas.shapeBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.shape === tool);
+        });
 
-            // Switch back to draw mode if needed
-            if (wasInDrawMode) {
-                setTimeout(() => switchMode('draw'), 100);
-            }
+        // Cursor logic
+        dom.canvas.element.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+        updateCanvasContext();
+    }
+
+    // Stroke Size (Visual Buttons)
+    dom.canvas.strokeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // UI Update
+            dom.canvas.strokeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // State Update
+            state.canvas.size = parseInt(btn.dataset.size);
+            updateCanvasContext();
+        });
+    });
+
+    // Color Feedback
+    dom.canvas.colorInput.addEventListener('input', (e) => {
+        state.canvas.color = e.target.value;
+        // Update the icon next to it to show the color
+        const wrapper = dom.canvas.colorInput.parentElement;
+        const icon = wrapper.querySelector('.color-icon');
+        if (icon) {
+            icon.style.color = e.target.value;
+        }
+        updateCanvasContext();
+    });
+
+    // Clear Canvas
+    dom.canvas.clearBtn.addEventListener('click', () => {
+        if (confirm('Clear entire drawing?')) {
+            dom.canvas.ctx.clearRect(0, 0, dom.canvas.element.width, dom.canvas.element.height);
+            state.canvas.isDirty = false;
+        }
+    });
+
+    // Canvas Image Logic (Floating Div)
+    dom.canvas.imgBtn.addEventListener('click', () => dom.canvas.imgInput.click());
+    dom.canvas.imgInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (red) => {
+                createFloatingImage(red.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    });
+
+    function createFloatingImage(src) {
+        if (state.canvas.floatingImage) {
+            state.canvas.floatingImage.remove(); // Only one at a time for simplicity
         }
 
-        isCreatingShape = false;
-        shapeStartPos = null;
+        const container = document.createElement('div');
+        container.className = 'canvas-image-container';
+        container.style.left = '50px';
+        container.style.top = '50px';
+
+        const img = new Image();
+        img.src = src;
+
+        const controls = document.createElement('div');
+        controls.className = 'canvas-image-controls';
+
+        const stampBtn = document.createElement('button');
+        stampBtn.className = 'canvas-stamp-btn';
+        stampBtn.innerText = 'Stamp';
+
+        // Stamp Logic
+        stampBtn.onclick = () => {
+            const rect = dom.canvas.element.getBoundingClientRect();
+            const contRect = container.getBoundingClientRect();
+
+            // Calculate relative position to canvas
+            const x = contRect.left - rect.left + 5; // +5 padding
+            const y = contRect.top - rect.top + 5;
+            const w = img.width; // current rendered width
+            const h = img.height;
+
+            // Draw to canvas
+            const ctx = dom.canvas.ctx;
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(img, x, y, img.getBoundingClientRect().width, img.getBoundingClientRect().height);
+
+            state.canvas.isDirty = true;
+
+            container.remove();
+            state.canvas.floatingImage = null;
+        };
+
+        controls.appendChild(stampBtn);
+        container.appendChild(img);
+        container.appendChild(controls);
+        dom.canvas.wrapper.appendChild(container);
+
+        state.canvas.floatingImage = container;
+
+        // Basic Drag Logic
+        let isDragging = false;
+        let diffX = 0, diffY = 0;
+
+        container.addEventListener('mousedown', (e) => {
+            if (e.target === stampBtn) return;
+            isDragging = true;
+            const rect = container.getBoundingClientRect();
+            diffX = e.clientX - rect.left;
+            diffY = e.clientY - rect.top;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            container.style.left = (e.clientX - diffX - dom.canvas.wrapper.getBoundingClientRect().left) + 'px';
+            container.style.top = (e.clientY - diffY - dom.canvas.wrapper.getBoundingClientRect().top) + 'px';
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
     }
 
-    isDrawing = false;
-}
 
-function handleTouchStart(e) {
-    startDrawing(e);
-}
+    // Drawing Events
+    const canvas = dom.canvas.element;
+    const ctx = dom.canvas.ctx;
 
-function handleTouchMove(e) {
-    draw(e);
-}
+    const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches[0].clientX) - rect.left;
+        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+        return { x, y };
+    };
 
-// Navigation
-function togglePage() {
-    if (currentPage === 'home') {
-        goToCollab();
-    } else {
-        goToHome();
-    }
-}
+    const startDraw = (e) => {
+        if (e.target !== canvas) return;
+        if (e.cancelable) e.preventDefault(); // Prevent scrolling/emulation
 
-function goToCollab() {
-    currentPage = 'collab';
-    document.getElementById('homePage').classList.add('hidden');
-    document.getElementById('collabPage').style.display = 'block';
+        if (e.type !== 'mousedown' && e.type !== 'touchstart') return;
 
-    // Get or create room ID from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    let roomId = urlParams.get('collab');
+        state.canvas.isDrawing = true;
+        state.canvas.isDirty = true;
 
-    if (!roomId) {
-        // Generate new room ID
-        roomId = Math.random().toString(36).substr(2, 9);
-        // Update URL without reloading page
-        const newUrl = window.location.origin + window.location.pathname + '?collab=' + roomId;
-        window.history.pushState({ path: newUrl }, '', newUrl);
-    }
+        const { x, y } = getPos(e);
+        state.canvas.startX = x;
+        state.canvas.startY = y;
 
-    currentRoomId = roomId;
+        // Force round caps for smooth drawing
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-    // Initialize Socket.io if not already initialized
-    if (!socket) {
-        initializeSocket();
-    } else if (isConnected) {
-        // Already connected, just join the room
-        socket.emit('join-room', currentRoomId);
-    }
+        ctx.beginPath();
+        ctx.moveTo(x, y);
 
-    // Ensure editor is set up and mode is correct
-    setupEditor('textEditorCollab');
-    if (currentMode === 'text') {
-        showTextControls();
-    } else {
-        showDrawControls();
-    }
-}
-
-function goToHome() {
-    currentPage = 'home';
-    document.getElementById('collabPage').style.display = 'none';
-    document.getElementById('homePage').classList.remove('hidden');
-
-    // Ensure editor is set up
-    setupEditor('textEditor');
-    showTextControls();
-}
-
-// Clear content
-function clearContent() {
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
-    const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
-
-    // Remove confirm dialog - clear immediately
-    if (editor) editor.innerHTML = '';
-
-    // Clear shapes state
-    shapes = [];
-    isCreatingShape = false;
-    shapeStartPos = null;
-
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Broadcast canvas clear to other users
-        if (isCollab && socket && isConnected) {
-            socket.emit('clear-canvas');
+        // Snapshot for shapes
+        if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+            state.canvas.snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        } else {
+            // Dot for single click
+            ctx.lineTo(x, y);
+            ctx.stroke();
         }
-    }
-}
+    };
 
-// Download PDF
-function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const isCollab = currentPage === 'collab';
-    const editor = isCollab ?
-        document.getElementById('textEditorCollab') :
-        document.getElementById('textEditor');
+    // Draw Function (Standard Path)
+    const draw = (e) => {
+        if (!state.canvas.isDrawing) return;
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
 
-    if (currentMode === 'text') {
-        const text = editor ? (editor.innerText || editor.textContent || '') : '';
+        const { x, y } = getPos(e);
 
-        if (!text.trim()) {
-            alert('No content to download!');
+        if (state.canvas.tool === 'brush' || state.canvas.tool === 'eraser') {
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        } else if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+            // Restore snapshot
+            ctx.putImageData(state.canvas.snapshot, 0, 0);
+            ctx.beginPath();
+
+            const w = x - state.canvas.startX;
+            const h = y - state.canvas.startY;
+
+            if (state.canvas.tool === 'rect') {
+                ctx.rect(state.canvas.startX, state.canvas.startY, w, h);
+            } else if (state.canvas.tool === 'circle') {
+                const r = Math.sqrt(w * w + h * h);
+                ctx.arc(state.canvas.startX, state.canvas.startY, r, 0, 2 * Math.PI);
+            } else if (state.canvas.tool === 'line') {
+                ctx.moveTo(state.canvas.startX, state.canvas.startY);
+                ctx.lineTo(x, y);
+            } else if (state.canvas.tool === 'tri') {
+                ctx.moveTo(state.canvas.startX + w / 2, state.canvas.startY);
+                ctx.lineTo(state.canvas.startX, state.canvas.startY + h);
+                ctx.lineTo(state.canvas.startX + w, state.canvas.startY + h);
+                ctx.closePath();
+            } else if (state.canvas.tool === 'star') {
+                const r = Math.sqrt(w * w + h * h);
+                const spikes = 5;
+                const outerRadius = r;
+                const innerRadius = r / 2;
+                let rot = Math.PI / 2 * 3;
+                let cx = state.canvas.startX;
+                let cy = state.canvas.startY;
+                const step = Math.PI / spikes;
+
+                ctx.moveTo(cx, cy - outerRadius);
+                for (let i = 0; i < spikes; i++) {
+                    cx = state.canvas.startX + Math.cos(rot) * outerRadius;
+                    cy = state.canvas.startY + Math.sin(rot) * outerRadius;
+                    ctx.lineTo(cx, cy);
+                    rot += step;
+
+                    cx = state.canvas.startX + Math.cos(rot) * innerRadius;
+                    cy = state.canvas.startY + Math.sin(rot) * innerRadius;
+                    ctx.lineTo(cx, cy);
+                    rot += step;
+                }
+                ctx.closePath();
+            } else if (state.canvas.tool === 'arrow') {
+                const headLen = 15;
+                const angle = Math.atan2(h, w);
+                ctx.moveTo(state.canvas.startX, state.canvas.startY);
+                ctx.lineTo(x, y);
+                // Arrow head
+                ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+            }
+            ctx.stroke();
+        }
+    };
+
+    // Stop Draw
+    const stopDraw = () => {
+        if (state.canvas.isDrawing) {
+            state.canvas.isDrawing = false;
+            ctx.beginPath();
+        }
+    };
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseout', stopDraw);
+
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    // --- PDF Export ---
+    // --- PDF Export ---
+    dom.nav.downloadBtn.addEventListener('click', () => {
+        // --- Download Guard ---
+        const textContent = dom.text.editor.innerText.trim();
+        const hasText = textContent.length > 0 && textContent !== "Start typing here...";
+        const hasFloating = !!state.canvas.floatingImage;
+        const hasCanvas = state.canvas.isDirty || hasFloating;
+
+        if (!hasText && !hasCanvas) {
+            alert('You haven’t created anything yet. Please add content before downloading.');
             return;
         }
 
-        const doc = new jsPDF();
-        doc.setFontSize(currentFontSize);
+        // Show branding footer temporarily
+        const footer = document.getElementById('pdf-footer');
+        footer.classList.remove('hidden');
 
-        const lines = doc.splitTextToSize(text, 180);
-        let y = 15;
-        const lineHeight = currentFontSize * 0.5;
-        const pageHeight = doc.internal.pageSize.height;
+        let elementToPrint;
+        let opt = {
+            margin: 0.5,
+            filename: `SyncPad_${new Date().toISOString().slice(0, 10)}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
 
-        lines.forEach(line => {
-            if (y + lineHeight > pageHeight - 20) {
-                doc.addPage();
-                y = 15;
-            }
-            doc.text(line, 15, y);
-            y += lineHeight;
-        });
+        if (currentMode === 'text') {
+            // Clone the editor content to add footer
+            const content = dom.text.editor.cloneNode(true);
+            const wrapper = document.createElement('div');
+            wrapper.style.padding = "20px";
+            wrapper.appendChild(content);
 
-        doc.save('syncpad-notes.pdf');
-    } else {
-        const canvas = isCollab ? canvasCollab : document.getElementById('drawingCanvas');
-        if (!canvas) return;
+            // Append footer cloned
+            const footerClone = footer.cloneNode(true);
+            footerClone.classList.remove('hidden');
+            footerClone.style.marginTop = "50px";
+            footerClone.style.textAlign = "right";
+            footerClone.style.fontFamily = "sans-serif";
+            footerClone.style.color = "#777";
+            footerClone.style.fontSize = "12px";
+            wrapper.appendChild(footerClone);
 
-        const imgData = canvas.toDataURL('image/png');
+            elementToPrint = wrapper;
 
-        const emptyCanvas = document.createElement('canvas');
-        emptyCanvas.width = canvas.width;
-        emptyCanvas.height = canvas.height;
+            // Generate
+            html2pdf().set(opt).from(elementToPrint).save().then(() => {
+                footer.classList.add('hidden'); // Hide again just in case
+            });
 
-        if (canvas.toDataURL() === emptyCanvas.toDataURL()) {
-            alert('No drawing to download!');
-            return;
+        } else {
+            // Canvas Mode
+            // For canvas, we print the canvas image + footer
+            const wrapper = document.createElement('div');
+
+            const img = new Image();
+            img.src = dom.canvas.element.toDataURL('image/png');
+            img.style.width = "100%";
+
+            const footerClone = footer.cloneNode(true);
+            footerClone.classList.remove('hidden');
+            footerClone.style.marginTop = "20px";
+            footerClone.style.textAlign = "right";
+
+            wrapper.appendChild(img);
+            wrapper.appendChild(footerClone);
+
+            elementToPrint = wrapper;
+
+            // Wait for image to load
+            img.onload = () => {
+                html2pdf().set(opt).from(elementToPrint).save().then(() => {
+                    footer.classList.add('hidden');
+                });
+            };
         }
+    });
 
-        const doc = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
-
-        const imgWidth = 190;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
-        doc.save('syncpad-drawing.pdf');
-    }
-}
-
-// Share link generation
-function generateShareLink() {
-    const randomId = Math.random().toString(36).substr(2, 9);
-    const link = window.location.origin + window.location.pathname + '?collab=' + randomId;
-    const linkInput = document.getElementById('shareLink');
-    if (linkInput) linkInput.value = link;
-}
-
-// Copy link
-function copyLink(buttonElement) {
-    const link = window.location.origin + window.location.pathname + '?collab=' + Math.random().toString(36).substr(2, 9);
-
-    // Create temporary input
-    const tempInput = document.createElement('input');
-    tempInput.value = link;
-    document.body.appendChild(tempInput);
-    tempInput.select();
-
-    try {
-        document.execCommand('copy');
-        const btn = buttonElement || document.querySelector('.copy-link-btn');
-        if (btn) {
-            const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-text">Copied!</span>';
-            setTimeout(() => {
-                btn.innerHTML = originalHTML;
-            }, 2000);
-        }
-    } catch (err) {
-        alert('Failed to copy link');
-    }
-
-    document.body.removeChild(tempInput);
-}
+    // Go!
+    init();
+});
