@@ -14,9 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
             startX: 0,
             startY: 0,
             snapshot: null,
-            floatingImage: null
+            floatingImage: null,
+            // Undo/Redo History
+            history: [],
+            historyStep: -1
         }
     };
+
+    // --- DOM Elements ---
     const dom = {
         nav: {
             linksBtn: document.getElementById('links-btn'),
@@ -65,25 +70,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initialization ---
     function init() {
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        try {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
 
-        // Robust Resize: Observer
-        if (window.ResizeObserver) {
-            const ro = new ResizeObserver(() => {
-                // Determine if visible
-                if (dom.canvas.wrapper.offsetParent !== null) {
-                    resizeCanvas();
-                }
+            // Robust Resize: Observer
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    // Determine if visible
+                    if (dom.canvas.wrapper.offsetParent !== null) {
+                        try {
+                            resizeCanvas();
+                        } catch (e) {
+                            console.error("Error in ResizeObserver:", e);
+                        }
+                    }
+                });
+                ro.observe(dom.canvas.wrapper);
+            }
+
+            // Before Unload Warning
+            window.addEventListener('beforeunload', (e) => {
+                e.preventDefault();
+                e.returnValue = 'Data will be lost!';
             });
-            ro.observe(dom.canvas.wrapper);
-        }
 
-        // Before Unload Warning
-        window.addEventListener('beforeunload', (e) => {
-            e.preventDefault();
-            e.returnValue = 'Data will be lost!';
-        });
+            // Initialize History
+            saveCanvasState();
+        } catch (e) {
+            console.error("Initialization Failed:", e);
+            alert("SyncPad failed to initialize correctly. Please reload the page.");
+        }
     }
 
     // --- UI Logic ---
@@ -115,9 +132,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Resize canvas if showing
         if (mode === 'canvas') {
-            setTimeout(resizeCanvas, 50);
+            setTimeout(() => {
+                try {
+                    resizeCanvas();
+                } catch (e) {
+                    console.error("Error resizing canvas on switch:", e);
+                }
+            }, 50);
         }
     }
+
+    // --- Global Shortcuts ---
+    document.addEventListener('keydown', (e) => {
+        // Undo / Redo
+        if ((e.ctrlKey || e.metaKey)) {
+            if (e.key === 'z') {
+                if (currentMode === 'canvas') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        redoCanvas();
+                    } else {
+                        undoCanvas();
+                    }
+                }
+                // Text mode is handled natively
+            } else if (e.key === 'y') {
+                if (currentMode === 'canvas') {
+                    e.preventDefault();
+                    redoCanvas();
+                }
+                // Text mode is handled natively
+            }
+        }
+
+        // Canvas Tool Shortcuts (Only processing if not typing in text mode)
+        // Check if Text Mode is active AND editor is focused?
+        // Actually, if currentMode is canvas, we accept these keys.
+        if (currentMode === 'canvas' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            switch (e.key.toLowerCase()) {
+                case 'b':
+                    setCanvasTool('brush');
+                    break;
+                case 'e':
+                    setCanvasTool('eraser');
+                    break;
+                case ']':
+                    increaseBrushSize();
+                    break;
+                case '[':
+                    decreaseBrushSize();
+                    break;
+            }
+        }
+    });
+
+    function increaseBrushSize() {
+        // Sizes: 2, 5, 10, 20. Find next largest.
+        const currentSize = state.canvas.size;
+        const buttonSizes = Array.from(dom.canvas.strokeBtns).map(b => parseInt(b.dataset.size));
+        const nextSize = buttonSizes.find(s => s > currentSize);
+
+        if (nextSize) {
+            const btn = Array.from(dom.canvas.strokeBtns).find(b => parseInt(b.dataset.size) === nextSize);
+            if (btn) btn.click();
+        }
+    }
+
+    function decreaseBrushSize() {
+        const currentSize = state.canvas.size;
+        const buttonSizes = Array.from(dom.canvas.strokeBtns).map(b => parseInt(b.dataset.size)).reverse();
+        const prevSize = buttonSizes.find(s => s < currentSize);
+
+        if (prevSize) {
+            const btn = Array.from(dom.canvas.strokeBtns).find(b => parseInt(b.dataset.size) === prevSize);
+            if (btn) btn.click();
+        }
+    }
+
 
     // --- Text Editor Logic ---
 
@@ -125,10 +216,24 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.text.cmdBtns.forEach(btn => {
         btn.addEventListener('mousedown', (e) => {
             e.preventDefault(); // Prevent focus loss
-            const cmd = btn.dataset.cmd;
-            document.execCommand(cmd, false, null);
+            try {
+                const cmd = btn.dataset.cmd;
+                document.execCommand(cmd, false, null);
+            } catch (err) {
+                console.error("Text command failed:", err);
+            }
         });
     });
+
+    // Lorem Ipsum
+    const loremBtn = document.getElementById('lorem-btn');
+    if (loremBtn) {
+        loremBtn.addEventListener('click', () => {
+            const latin = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.";
+            document.execCommand('insertText', false, latin);
+            dom.text.editor.focus();
+        });
+    }
 
     // Font Family
     dom.text.fontFamily.addEventListener('change', (e) => {
@@ -176,6 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (red) => {
                 document.execCommand('insertImage', false, red.target.result);
             };
+            reader.onerror = (err) => {
+                console.error("File reading failed in Text Mode:", err);
+                alert("Failed to load image.");
+            };
             reader.readAsDataURL(file);
         }
         e.target.value = ''; // reset
@@ -184,59 +293,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Canvas Logic ---
 
-    function resizeCanvas() {
-        // Save current content
-        const dataUrl = dom.canvas.element.toDataURL();
+    function saveCanvasState() {
+        try {
+            // Limit history to 20 steps
+            if (state.canvas.historyStep < state.canvas.history.length - 1) {
+                // If we undid and then drew new, truncate future history
+                state.canvas.history = state.canvas.history.slice(0, state.canvas.historyStep + 1);
+            }
+            state.canvas.history.push(dom.canvas.element.toDataURL());
+            if (state.canvas.history.length > 20) {
+                state.canvas.history.shift();
+            } else {
+                state.canvas.historyStep++;
+            }
+        } catch (e) {
+            console.error("Error saving canvas state:", e);
+        }
+    }
+
+    function undoCanvas() {
+        if (state.canvas.historyStep > 0) {
+            state.canvas.historyStep--;
+            restoreCanvasState(state.canvas.history[state.canvas.historyStep]);
+        }
+    }
+
+    function redoCanvas() {
+        if (state.canvas.historyStep < state.canvas.history.length - 1) {
+            state.canvas.historyStep++;
+            restoreCanvasState(state.canvas.history[state.canvas.historyStep]);
+        }
+    }
+
+    function restoreCanvasState(dataUrl) {
         const img = new Image();
         img.src = dataUrl;
-
-        // Resize
-        const rect = dom.canvas.wrapper.getBoundingClientRect();
-        dom.canvas.element.width = rect.width;
-        dom.canvas.element.height = rect.height;
-
-        // Restore content
         img.onload = () => {
+            dom.canvas.ctx.clearRect(0, 0, dom.canvas.element.width, dom.canvas.element.height);
             dom.canvas.ctx.drawImage(img, 0, 0);
         };
-        // Re-set styles
-        updateCanvasContext();
+        img.onerror = (err) => console.error("Failed to restore canvas state", err);
+    }
+
+
+    function resizeCanvas() {
+        try {
+            const dataUrl = dom.canvas.element.toDataURL(); // Save current
+            const img = new Image();
+            img.src = dataUrl;
+
+            const rect = dom.canvas.wrapper.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return; // Hidden or collapsed
+
+            dom.canvas.element.width = rect.width;
+            dom.canvas.element.height = rect.height;
+
+            img.onload = () => {
+                dom.canvas.ctx.drawImage(img, 0, 0);
+            };
+            updateCanvasContext();
+        } catch (e) {
+            console.error("Canvas resize error:", e);
+        }
     }
 
     function updateCanvasContext() {
-        const ctx = dom.canvas.ctx;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = state.canvas.size;
+        try {
+            const ctx = dom.canvas.ctx;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = state.canvas.size;
 
-        if (state.canvas.tool === 'eraser') {
-            ctx.strokeStyle = '#ffffff';
-            ctx.globalAlpha = 1.0;
-        } else {
-            ctx.strokeStyle = state.canvas.color;
-
-            // Brush styles
-            if (state.canvas.tool === 'brush') {
-                if (state.canvas.brushType === 'pen') {
-                    ctx.globalAlpha = 1.0;
-                    ctx.lineCap = 'round';
-                } else if (state.canvas.brushType === 'marker') {
-                    ctx.globalAlpha = 0.5;
-                    ctx.lineCap = 'square';
-                } else if (state.canvas.brushType === 'pencil') {
-                    ctx.globalAlpha = 0.8;
-                }
-            } else {
-                // Shapes
+            if (state.canvas.tool === 'eraser') {
+                ctx.strokeStyle = '#ffffff';
                 ctx.globalAlpha = 1.0;
+            } else {
+                ctx.strokeStyle = state.canvas.color;
+
+                if (state.canvas.tool === 'brush') {
+                    if (state.canvas.brushType === 'pen') {
+                        ctx.globalAlpha = 1.0;
+                        ctx.lineCap = 'round';
+                    } else if (state.canvas.brushType === 'marker') {
+                        ctx.globalAlpha = 0.5;
+                        ctx.lineCap = 'square';
+                    } else if (state.canvas.brushType === 'pencil') {
+                        ctx.globalAlpha = 0.8;
+                    }
+                } else {
+                    ctx.globalAlpha = 1.0;
+                }
             }
-        }
+        } catch (e) { console.error("Update Context Error:", e); }
     }
 
     // Tool Selection
     dom.canvas.brushTypeSelect.addEventListener('change', (e) => {
         state.canvas.brushType = e.target.value;
-        setCanvasTool('brush'); // switch to brush if not already
+        setCanvasTool('brush');
     });
 
     dom.canvas.brushBtn.addEventListener('click', () => setCanvasTool('brush'));
@@ -275,7 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Color Feedback
     dom.canvas.colorInput.addEventListener('input', (e) => {
         state.canvas.color = e.target.value;
-        // Update the icon next to it to show the color
         const wrapper = dom.canvas.colorInput.parentElement;
         const icon = wrapper.querySelector('.color-icon');
         if (icon) {
@@ -289,10 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm('Clear entire drawing?')) {
             dom.canvas.ctx.clearRect(0, 0, dom.canvas.element.width, dom.canvas.element.height);
             state.canvas.isDirty = false;
+            saveCanvasState(); // Checkpoint
         }
     });
 
-    // Canvas Image Logic (Floating Div)
+    // Canvas Image Logic
     dom.canvas.imgBtn.addEventListener('click', () => dom.canvas.imgInput.click());
     dom.canvas.imgInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -301,81 +455,85 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (red) => {
                 createFloatingImage(red.target.result);
             };
+            reader.onerror = (err) => console.error("Canvas image load failed:", err);
             reader.readAsDataURL(file);
         }
         e.target.value = '';
     });
 
     function createFloatingImage(src) {
-        if (state.canvas.floatingImage) {
-            state.canvas.floatingImage.remove(); // Only one at a time for simplicity
+        try {
+            if (state.canvas.floatingImage) {
+                state.canvas.floatingImage.remove();
+            }
+
+            const container = document.createElement('div');
+            container.className = 'canvas-image-container';
+            container.style.left = '50px';
+            container.style.top = '50px';
+
+            const img = new Image();
+            img.src = src;
+
+            const controls = document.createElement('div');
+            controls.className = 'canvas-image-controls';
+
+            const stampBtn = document.createElement('button');
+            stampBtn.className = 'canvas-stamp-btn';
+            stampBtn.innerText = 'Stamp';
+
+            stampBtn.onclick = () => {
+                try {
+                    const rect = dom.canvas.element.getBoundingClientRect();
+                    const contRect = container.getBoundingClientRect();
+
+                    const x = contRect.left - rect.left + 5;
+                    const y = contRect.top - rect.top + 5;
+
+                    const ctx = dom.canvas.ctx;
+                    ctx.globalAlpha = 1.0;
+                    ctx.drawImage(img, x, y, img.getBoundingClientRect().width, img.getBoundingClientRect().height);
+
+                    state.canvas.isDirty = true;
+                    saveCanvasState(); // Checkpoint
+
+                    container.remove();
+                    state.canvas.floatingImage = null;
+                } catch (e) {
+                    console.error("Stamping failed:", e);
+                }
+            };
+
+            controls.appendChild(stampBtn);
+            container.appendChild(img);
+            container.appendChild(controls);
+            dom.canvas.wrapper.appendChild(container);
+
+            state.canvas.floatingImage = container;
+
+            let isDragging = false;
+            let diffX = 0, diffY = 0;
+
+            container.addEventListener('mousedown', (e) => {
+                if (e.target === stampBtn) return;
+                isDragging = true;
+                const rect = container.getBoundingClientRect();
+                diffX = e.clientX - rect.left;
+                diffY = e.clientY - rect.top;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                container.style.left = (e.clientX - diffX - dom.canvas.wrapper.getBoundingClientRect().left) + 'px';
+                container.style.top = (e.clientY - diffY - dom.canvas.wrapper.getBoundingClientRect().top) + 'px';
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        } catch (e) {
+            console.error("Floating image creation failed:", e);
         }
-
-        const container = document.createElement('div');
-        container.className = 'canvas-image-container';
-        container.style.left = '50px';
-        container.style.top = '50px';
-
-        const img = new Image();
-        img.src = src;
-
-        const controls = document.createElement('div');
-        controls.className = 'canvas-image-controls';
-
-        const stampBtn = document.createElement('button');
-        stampBtn.className = 'canvas-stamp-btn';
-        stampBtn.innerText = 'Stamp';
-
-        // Stamp Logic
-        stampBtn.onclick = () => {
-            const rect = dom.canvas.element.getBoundingClientRect();
-            const contRect = container.getBoundingClientRect();
-
-            // Calculate relative position to canvas
-            const x = contRect.left - rect.left + 5; // +5 padding
-            const y = contRect.top - rect.top + 5;
-            const w = img.width; // current rendered width
-            const h = img.height;
-
-            // Draw to canvas
-            const ctx = dom.canvas.ctx;
-            ctx.globalAlpha = 1.0;
-            ctx.drawImage(img, x, y, img.getBoundingClientRect().width, img.getBoundingClientRect().height);
-
-            state.canvas.isDirty = true;
-
-            container.remove();
-            state.canvas.floatingImage = null;
-        };
-
-        controls.appendChild(stampBtn);
-        container.appendChild(img);
-        container.appendChild(controls);
-        dom.canvas.wrapper.appendChild(container);
-
-        state.canvas.floatingImage = container;
-
-        // Basic Drag Logic
-        let isDragging = false;
-        let diffX = 0, diffY = 0;
-
-        container.addEventListener('mousedown', (e) => {
-            if (e.target === stampBtn) return;
-            isDragging = true;
-            const rect = container.getBoundingClientRect();
-            diffX = e.clientX - rect.left;
-            diffY = e.clientY - rect.top;
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            container.style.left = (e.clientX - diffX - dom.canvas.wrapper.getBoundingClientRect().left) + 'px';
-            container.style.top = (e.clientY - diffY - dom.canvas.wrapper.getBoundingClientRect().top) + 'px';
-        });
-
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
     }
 
 
@@ -391,109 +549,128 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const startDraw = (e) => {
-        if (e.target !== canvas) return;
-        if (e.cancelable) e.preventDefault(); // Prevent scrolling/emulation
+        try {
+            if (e.target !== canvas) return;
+            if (e.cancelable) e.preventDefault();
 
-        if (e.type !== 'mousedown' && e.type !== 'touchstart') return;
+            if (e.type !== 'mousedown' && e.type !== 'touchstart') return;
 
-        state.canvas.isDrawing = true;
-        state.canvas.isDirty = true;
+            state.canvas.isDrawing = true;
+            state.canvas.isDirty = true;
 
-        const { x, y } = getPos(e);
-        state.canvas.startX = x;
-        state.canvas.startY = y;
+            const { x, y } = getPos(e);
+            state.canvas.startX = x;
+            state.canvas.startY = y;
 
-        // Force round caps for smooth drawing
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
 
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-
-        // Snapshot for shapes
-        if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
-            state.canvas.snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        } else {
-            // Dot for single click
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        }
-    };
-
-    // Draw Function (Standard Path)
-    const draw = (e) => {
-        if (!state.canvas.isDrawing) return;
-        if (e.cancelable) e.preventDefault();
-        e.stopPropagation();
-
-        const { x, y } = getPos(e);
-
-        if (state.canvas.tool === 'brush' || state.canvas.tool === 'eraser') {
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        } else if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
-            // Restore snapshot
-            ctx.putImageData(state.canvas.snapshot, 0, 0);
             ctx.beginPath();
+            ctx.moveTo(x, y);
 
-            const w = x - state.canvas.startX;
-            const h = y - state.canvas.startY;
-
-            if (state.canvas.tool === 'rect') {
-                ctx.rect(state.canvas.startX, state.canvas.startY, w, h);
-            } else if (state.canvas.tool === 'circle') {
-                const r = Math.sqrt(w * w + h * h);
-                ctx.arc(state.canvas.startX, state.canvas.startY, r, 0, 2 * Math.PI);
-            } else if (state.canvas.tool === 'line') {
-                ctx.moveTo(state.canvas.startX, state.canvas.startY);
+            if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+                state.canvas.snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            } else {
                 ctx.lineTo(x, y);
-            } else if (state.canvas.tool === 'tri') {
-                ctx.moveTo(state.canvas.startX + w / 2, state.canvas.startY);
-                ctx.lineTo(state.canvas.startX, state.canvas.startY + h);
-                ctx.lineTo(state.canvas.startX + w, state.canvas.startY + h);
-                ctx.closePath();
-            } else if (state.canvas.tool === 'star') {
-                const r = Math.sqrt(w * w + h * h);
-                const spikes = 5;
-                const outerRadius = r;
-                const innerRadius = r / 2;
-                let rot = Math.PI / 2 * 3;
-                let cx = state.canvas.startX;
-                let cy = state.canvas.startY;
-                const step = Math.PI / spikes;
-
-                ctx.moveTo(cx, cy - outerRadius);
-                for (let i = 0; i < spikes; i++) {
-                    cx = state.canvas.startX + Math.cos(rot) * outerRadius;
-                    cy = state.canvas.startY + Math.sin(rot) * outerRadius;
-                    ctx.lineTo(cx, cy);
-                    rot += step;
-
-                    cx = state.canvas.startX + Math.cos(rot) * innerRadius;
-                    cy = state.canvas.startY + Math.sin(rot) * innerRadius;
-                    ctx.lineTo(cx, cy);
-                    rot += step;
-                }
-                ctx.closePath();
-            } else if (state.canvas.tool === 'arrow') {
-                const headLen = 15;
-                const angle = Math.atan2(h, w);
-                ctx.moveTo(state.canvas.startX, state.canvas.startY);
-                ctx.lineTo(x, y);
-                // Arrow head
-                ctx.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
-                ctx.moveTo(x, y);
-                ctx.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+                ctx.stroke();
             }
-            ctx.stroke();
+        } catch (err) {
+            console.error("StartDraw failed:", err);
+            state.canvas.isDrawing = false; // Reset safety
         }
     };
 
-    // Stop Draw
+    // Draw Function
+    const draw = (e) => {
+        try {
+            if (!state.canvas.isDrawing) return;
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
+
+            const { x, y } = getPos(e);
+
+            if (state.canvas.tool === 'brush' || state.canvas.tool === 'eraser') {
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            } else if (['rect', 'circle', 'tri', 'star', 'line', 'arrow'].includes(state.canvas.tool)) {
+                if (!state.canvas.snapshot) return;
+                ctx.putImageData(state.canvas.snapshot, 0, 0);
+
+                // Redraw all shapes logic...
+                // To keep it clean, I'll just copy the existing logic or keep it minimal
+                // But since I'm replacing the whole file content block, I must assume the logic was good.
+                // The previous logic for shapes was inline.
+                ctx.beginPath();
+                const w = x - state.canvas.startX;
+                const h = y - state.canvas.startY;
+
+                drawPreviewShape(state.canvas.tool, state.canvas.startX, state.canvas.startY, w, h, x, y);
+
+                ctx.stroke();
+            }
+        } catch (err) {
+            console.error("Draw failed:", err);
+        }
+    };
+
+    // Helper to keep draw() clean
+    function drawPreviewShape(tool, startX, startY, w, h, curX, curY) {
+        if (tool === 'rect') {
+            dom.canvas.ctx.rect(startX, startY, w, h);
+        } else if (tool === 'circle') {
+            const r = Math.sqrt(w * w + h * h);
+            dom.canvas.ctx.arc(startX, startY, r, 0, 2 * Math.PI);
+        } else if (tool === 'line') {
+            dom.canvas.ctx.moveTo(startX, startY);
+            dom.canvas.ctx.lineTo(curX, curY);
+        } else if (tool === 'tri') {
+            dom.canvas.ctx.moveTo(startX + w / 2, startY);
+            dom.canvas.ctx.lineTo(startX, startY + h);
+            dom.canvas.ctx.lineTo(startX + w, startY + h);
+            dom.canvas.ctx.closePath();
+        } else if (tool === 'star') {
+            const r = Math.sqrt(w * w + h * h);
+            const spikes = 5;
+            const outerRadius = r;
+            const innerRadius = r / 2;
+            let rot = Math.PI / 2 * 3;
+            let cx = startX;
+            let cy = startY;
+            const step = Math.PI / spikes;
+
+            dom.canvas.ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                cx = startX + Math.cos(rot) * outerRadius;
+                cy = startY + Math.sin(rot) * outerRadius;
+                dom.canvas.ctx.lineTo(cx, cy);
+                rot += step;
+
+                cx = startX + Math.cos(rot) * innerRadius;
+                cy = startY + Math.sin(rot) * innerRadius;
+                dom.canvas.ctx.lineTo(cx, cy);
+                rot += step;
+            }
+            dom.canvas.ctx.closePath();
+        } else if (tool === 'arrow') {
+            const headLen = 15;
+            const angle = Math.atan2(h, w);
+            dom.canvas.ctx.moveTo(startX, startY);
+            dom.canvas.ctx.lineTo(curX, curY);
+            dom.canvas.ctx.lineTo(curX - headLen * Math.cos(angle - Math.PI / 6), curY - headLen * Math.sin(angle - Math.PI / 6));
+            dom.canvas.ctx.moveTo(curX, curY);
+            dom.canvas.ctx.lineTo(curX - headLen * Math.cos(angle + Math.PI / 6), curY - headLen * Math.sin(angle + Math.PI / 6));
+        }
+    }
+
     const stopDraw = () => {
-        if (state.canvas.isDrawing) {
-            state.canvas.isDrawing = false;
-            ctx.beginPath();
+        try {
+            if (state.canvas.isDrawing) {
+                state.canvas.isDrawing = false;
+                ctx.beginPath();
+                saveCanvasState(); // Checkpoint state for undo
+            }
+        } catch (e) {
+            console.error("StopDraw error:", e);
         }
     };
 
@@ -506,60 +683,76 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.addEventListener('touchmove', draw, { passive: false });
     canvas.addEventListener('touchend', stopDraw);
 
-    // --- PDF Export ---
-    // --- PDF Export ---
-    dom.nav.downloadBtn.addEventListener('click', () => {
-        // --- Download Guard ---
+    // --- PDF Export with Smart Logic ---
+
+    // Helper Functions
+    function hasTextContent() {
         const textContent = dom.text.editor.innerText.trim();
-        const hasText = textContent.length > 0 && textContent !== "Start typing here...";
+        const placeholder = 'Start typing here...SYNCPAD_MINI by parveenengg';
+        const cleanText = textContent.replace(/\s+/g, '');
+        const cleanPlaceholder = placeholder.replace(/\s+/g, '');
+
+        return textContent.length > 0 && cleanText !== cleanPlaceholder && textContent !== 'Start typing here...';
+    }
+
+    function hasCanvasContent() {
         const hasFloating = !!state.canvas.floatingImage;
-        const hasCanvas = state.canvas.isDirty || hasFloating;
+        return state.canvas.isDirty || hasFloating;
+    }
 
-        if (!hasText && !hasCanvas) {
-            alert('You haven’t created anything yet. Please add content before downloading.');
-            return;
-        }
+    function downloadTextPDF() {
+        try {
+            const header = document.getElementById('pdf-header');
 
-        // Show branding footer temporarily
-        const footer = document.getElementById('pdf-footer');
-        footer.classList.remove('hidden');
-
-        let elementToPrint;
-        let opt = {
-            margin: 0.5,
-            filename: `SyncPad_${new Date().toISOString().slice(0, 10)}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
-
-        if (currentMode === 'text') {
-            // Clone the editor content to add footer
+            // Clone the editor content to avoid messing up the UI
             const content = dom.text.editor.cloneNode(true);
+
+            // CRITICAL FIX: Reset height to 'auto' so it doesn't force a full page 
+            // if the text is short. The UI has min-height: 100vh, which we don't want here.
+            content.style.minHeight = 'auto';
+            content.style.height = 'auto';
+            content.style.overflow = 'visible';
+            content.style.boxShadow = 'none'; // Remove drop shadow
+            content.style.margin = '0';
+            content.style.padding = '0'; // Let the wrapper handle padding
+            content.style.background = 'transparent'; // Remove any page gradients
+
             const wrapper = document.createElement('div');
-            wrapper.style.padding = "20px";
+            wrapper.style.padding = "40px"; // Print margins
+            wrapper.style.boxSizing = "border-box";
+
+            // Append Header FIRST
+            const headerClone = header.cloneNode(true);
+            headerClone.classList.remove('hidden');
+            wrapper.appendChild(headerClone);
+
+            // Append Content
             wrapper.appendChild(content);
 
-            // Append footer cloned
-            const footerClone = footer.cloneNode(true);
-            footerClone.classList.remove('hidden');
-            footerClone.style.marginTop = "50px";
-            footerClone.style.textAlign = "right";
-            footerClone.style.fontFamily = "sans-serif";
-            footerClone.style.color = "#777";
-            footerClone.style.fontSize = "12px";
-            wrapper.appendChild(footerClone);
+            // Options optimized for single-page feeling for short content
+            const opt = {
+                margin: 0, // We handle margins in the wrapper
+                filename: `SyncPad_Text_${new Date().toISOString().slice(0, 10)}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    scrollY: 0 // capture from top
+                },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
 
-            elementToPrint = wrapper;
-
-            // Generate
-            html2pdf().set(opt).from(elementToPrint).save().then(() => {
-                footer.classList.add('hidden'); // Hide again just in case
+            html2pdf().set(opt).from(wrapper).save().catch(e => {
+                console.error("html2pdf failed:", e);
+                alert("Failed to generate PDF. Please try again.");
             });
+        } catch (e) { console.error("Download Text failed:", e); }
+    }
 
-        } else {
-            // Canvas Mode
-            // For canvas, we print the canvas image + footer
+    function downloadCanvasPDF() {
+        try {
+            const footer = document.getElementById('pdf-footer');
             const wrapper = document.createElement('div');
 
             const img = new Image();
@@ -570,19 +763,89 @@ document.addEventListener('DOMContentLoaded', () => {
             footerClone.classList.remove('hidden');
             footerClone.style.marginTop = "20px";
             footerClone.style.textAlign = "right";
+            footerClone.style.fontFamily = "sans-serif";
+            footerClone.style.color = "#777";
+            footerClone.style.fontSize = "12px";
 
             wrapper.appendChild(img);
             wrapper.appendChild(footerClone);
 
-            elementToPrint = wrapper;
+            const opt = {
+                margin: 0.5,
+                filename: `SyncPad_Canvas_${new Date().toISOString().slice(0, 10)}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
 
-            // Wait for image to load
             img.onload = () => {
-                html2pdf().set(opt).from(elementToPrint).save().then(() => {
-                    footer.classList.add('hidden');
+                html2pdf().set(opt).from(wrapper).save().catch(e => {
+                    console.error("html2pdf (canvas) failed:", e);
+                    alert("Failed to generate Canvas PDF.");
                 });
             };
+        } catch (e) { console.error("Download Canvas failed:", e); }
+    }
+
+    // Modal Logic
+    const modal = document.getElementById('download-modal');
+    const modalOverlay = modal.querySelector('.modal-overlay');
+    const downloadTextBtn = document.getElementById('download-text-btn');
+    const downloadCanvasBtn = document.getElementById('download-canvas-btn');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
+    function showModal() {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+    }
+
+    function hideModal() {
+        modal.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+
+    // Modal event listeners
+    downloadTextBtn.addEventListener('click', () => {
+        hideModal();
+        downloadTextPDF();
+    });
+
+    downloadCanvasBtn.addEventListener('click', () => {
+        hideModal();
+        downloadCanvasPDF();
+    });
+
+    modalCloseBtn.addEventListener('click', hideModal);
+    modalOverlay.addEventListener('click', hideModal);
+
+    // ESC key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            hideModal();
         }
+    });
+
+    // Main Download Button Logic
+    dom.nav.downloadBtn.addEventListener('click', () => {
+        try {
+            const hasText = hasTextContent();
+            const hasCanvas = hasCanvasContent();
+
+            console.log('Download clicked - Text:', hasText, 'Canvas:', hasCanvas);
+
+            if (!hasText && !hasCanvas) {
+                alert('No data to download! Please add some text or drawings first.');
+                return;
+            }
+
+            if (hasText && hasCanvas) {
+                showModal();
+            } else if (hasText) {
+                downloadTextPDF();
+            } else if (hasCanvas) {
+                downloadCanvasPDF();
+            }
+        } catch (e) { console.error("Download Button Logic Error:", e); }
     });
 
     // Go!

@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const cmdBtns = document.querySelectorAll('.text-toolbar .tool-btn[data-cmd]');
     const imgBtn = document.getElementById('text-img-btn');
     const imgInput = document.getElementById('text-img-input');
+    const loremBtn = document.getElementById('lorem-btn');
+
+    // Debug log
+    console.log("Lorem button found:", loremBtn);
+    console.log("Text editor found:", textEditor);
 
     // ========================================
     // COMMAND BUTTONS (Bold, Italic, etc.)
@@ -25,7 +30,38 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('mousedown', (e) => {
             e.preventDefault(); // Prevent focus loss
             const cmd = btn.dataset.cmd;
-            document.execCommand(cmd, false, null);
+
+            // Special handling for justify commands
+            if (cmd === 'justifyFull' || cmd === 'justifyLeft' || cmd === 'justifyCenter' || cmd === 'justifyRight') {
+                const selection = window.getSelection();
+
+                if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    const selectedContent = range.extractContents();
+
+                    const alignDiv = document.createElement('div');
+
+                    // Set alignment based on command
+                    if (cmd === 'justifyFull') alignDiv.style.textAlign = 'justify';
+                    else if (cmd === 'justifyLeft') alignDiv.style.textAlign = 'left';
+                    else if (cmd === 'justifyCenter') alignDiv.style.textAlign = 'center';
+                    else if (cmd === 'justifyRight') alignDiv.style.textAlign = 'right';
+
+                    alignDiv.appendChild(selectedContent);
+                    range.insertNode(alignDiv);
+
+                    // Restore selection
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(alignDiv);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+            } else {
+                // Regular command execution for other buttons
+                document.execCommand(cmd, false, null);
+            }
+
+            textEditor.focus();
         });
     });
 
@@ -74,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // PLACEHOLDER HANDLING
     // ========================================
     textEditor.addEventListener('focus', () => {
-        if (textEditor.textContent.trim() === 'Start typing here...') {
+        if (textEditor.textContent.trim() === 'SYNCPAD_MINI by parveenengg(Parveen Kumar)') {
             textEditor.innerHTML = '';
         }
     });
@@ -94,5 +130,72 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.readAsDataURL(file);
         }
         e.target.value = ''; // reset
+    });
+
+    // ========================================
+    // LOREM IPSUM BUTTON
+    // ========================================
+    // if (loremBtn) {
+    //     console.log("Attaching lorem button listener...");
+    //     loremBtn.addEventListener('click', (e) => {
+    //         e.preventDefault();
+    //         console.log("Lorem button clicked!");
+            
+    //         const loremWords = [
+    //             "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
+    //             "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore",
+    //             "magna", "aliqua", "enim", "ad", "minim", "veniam", "quis", "nostrud", "exercitation",
+    //             "ullamco", "laboris", "nisi", "aliquip", "ex", "ea", "commodo", "consequat", "duis",
+    //             "aute", "irure", "in", "reprehenderit", "voluptate", "velit", "esse", "cillum",
+    //             "fugiat", "nulla", "pariatur", "excepteur", "sint", "occaecat", "cupidatat", "non",
+    //             "proident", "sunt", "culpa", "qui", "officia", "deserunt", "mollit", "anim", "id",
+    //             "est", "laborum"
+    //         ];
+
+    //         // Generate 50 lorem words
+    //         const words = [];
+    //         for (let i = 0; i < 50; i++) {
+    //             words.push(loremWords[i % loremWords.length]);
+    //         }
+    //         const loremText = words.join(' ') + '.';
+
+    //         // Insert at cursor position
+    //         document.execCommand('insertHTML', false, loremText + '<br>');
+    //         textEditor.focus();
+            
+    //         console.log("Lorem text inserted!");
+    //     });
+    // } else {
+    //     console.error("Lorem button NOT FOUND! Check HTML for id='lorem-btn'");
+    // }
+
+    // ========================================
+    // JUSTIFY CONTENT SHORTCUT (Ctrl/Cmd + Shift + J)
+    // ========================================
+    textEditor.addEventListener('keydown', (e) => {
+        // Check for Ctrl+Shift+J (Windows/Linux) or Cmd+Shift+J (Mac)
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'j') {
+            e.preventDefault();
+
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const selectedContent = range.extractContents();
+
+                const justifyDiv = document.createElement('div');
+                justifyDiv.style.textAlign = 'justify';
+                justifyDiv.appendChild(selectedContent);
+
+                range.insertNode(justifyDiv);
+
+                // Restore selection
+                const newRange = document.createRange();
+                newRange.selectNodeContents(justifyDiv);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                textEditor.focus();
+            }
+        }
     });
 });

@@ -8,8 +8,10 @@ SyncPad Mini is a browser-based document editor with two modes:
 
 **Key Features**:
 - Switch between text and drawing modes
-- Export to PDF
+- **Smart PDF Export** - Auto-detects content and shows modal when both modes have data
+- **Unlimited Text Pagination** - Editor grows infinitely with visual page breaks
 - Responsive design (works on desktop and mobile)
+- **Error Handling** - Comprehensive try-catch blocks for robust operation
 - No backend required - runs entirely in the browser
 
 ---
@@ -21,7 +23,11 @@ The application has a single-page layout with these main sections:
 ### 1. Navbar (Always Visible)
 - **Brand**: "SyncPad Mini" logo
 - **Mode Toggle** (Desktop): Buttons to switch between Text/Canvas
-- **Download Button**: Exports current mode to PDF
+- **Smart Download Button**: Intelligently exports content based on what you've created:
+  - Only text → Downloads text PDF directly
+  - Only canvas → Downloads canvas PDF directly
+  - Both modes have content → Shows modal to choose which to download
+  - No content → Shows alert message
 - **Links Menu** (Mobile): GitHub and Portfolio links
 
 ### 2. Mobile Mode Bar (Mobile Only)
@@ -53,6 +59,7 @@ Contains two containers that are shown/hidden based on mode:
 2. Browser's built-in ContentEditable feature activates
 3. User types normally - browser handles text rendering
 4. Placeholder text ("Start typing here...") disappears on focus
+5. **Pagination**: Editor automatically grows as you type, with visual page breaks every 11 inches
 
 ### How Formatting Tools Work
 

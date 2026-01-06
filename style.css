@@ -552,3 +552,144 @@ button {
         /* Visual top */
     }
 }
+
+/* ========================================
+   DOWNLOAD MODAL STYLES
+   ======================================== */
+
+/* PDF Footer - Hidden in UI */
+.pdf-footer {
+    padding: 10px;
+    text-align: right;
+    color: #777;
+    font-size: 12px;
+    font-family: sans-serif;
+}
+
+/* Download Modal */
+.download-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.download-modal.hidden {
+    display: none;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: var(--bg-primary, #ffffff);
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    width: 90%;
+    z-index: 10000;
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-content h3 {
+    margin: 0 0 24px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary, #37352f);
+    text-align: center;
+}
+
+.modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.modal-option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: var(--bg-secondary, #f7f7f5);
+    border: 2px solid var(--border, #e1e1e0);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary, #37352f);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-option-btn:hover {
+    background: var(--accent-light, #e6f3ff);
+    border-color: var(--accent, #2383e2);
+    color: var(--accent, #2383e2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(35, 131, 226, 0.2);
+}
+
+.modal-option-btn .material-icons-round {
+    font-size: 24px;
+}
+
+.modal-close-btn {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--border, #e1e1e0);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: var(--text-secondary, #7e7e7e);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    background: var(--bg-hover, #efefef);
+    color: var(--text-primary, #37352f);
+}
+
+/* Responsive - Mobile */
+@media (max-width: 599px) {
+    .modal-content {
+        padding: 24px;
+        max-width: 90%;
+    }
+    
+    .modal-content h3 {
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+    }
+    
+    .modal-option-btn {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+    }
+}
