@@ -17,11 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const cmdBtns = document.querySelectorAll('.text-toolbar .tool-btn[data-cmd]');
     const imgBtn = document.getElementById('text-img-btn');
     const imgInput = document.getElementById('text-img-input');
-    const loremBtn = document.getElementById('lorem-btn');
-
-    // Debug log
-    console.log("Lorem button found:", loremBtn);
-    console.log("Text editor found:", textEditor);
 
     // ========================================
     // COMMAND BUTTONS (Bold, Italic, etc.)
@@ -131,43 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         e.target.value = ''; // reset
     });
-
-    // ========================================
-    // LOREM IPSUM BUTTON
-    // ========================================
-    // if (loremBtn) {
-    //     console.log("Attaching lorem button listener...");
-    //     loremBtn.addEventListener('click', (e) => {
-    //         e.preventDefault();
-    //         console.log("Lorem button clicked!");
-            
-    //         const loremWords = [
-    //             "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
-    //             "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore",
-    //             "magna", "aliqua", "enim", "ad", "minim", "veniam", "quis", "nostrud", "exercitation",
-    //             "ullamco", "laboris", "nisi", "aliquip", "ex", "ea", "commodo", "consequat", "duis",
-    //             "aute", "irure", "in", "reprehenderit", "voluptate", "velit", "esse", "cillum",
-    //             "fugiat", "nulla", "pariatur", "excepteur", "sint", "occaecat", "cupidatat", "non",
-    //             "proident", "sunt", "culpa", "qui", "officia", "deserunt", "mollit", "anim", "id",
-    //             "est", "laborum"
-    //         ];
-
-    //         // Generate 50 lorem words
-    //         const words = [];
-    //         for (let i = 0; i < 50; i++) {
-    //             words.push(loremWords[i % loremWords.length]);
-    //         }
-    //         const loremText = words.join(' ') + '.';
-
-    //         // Insert at cursor position
-    //         document.execCommand('insertHTML', false, loremText + '<br>');
-    //         textEditor.focus();
-            
-    //         console.log("Lorem text inserted!");
-    //     });
-    // } else {
-    //     console.error("Lorem button NOT FOUND! Check HTML for id='lorem-btn'");
-    // }
 
     // ========================================
     // JUSTIFY CONTENT SHORTCUT (Ctrl/Cmd + Shift + J)
