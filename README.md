@@ -1,4 +1,5 @@
 # SyncPad Mini — Project Documentation
+# link - https://parveenengg.github.io/SyncPad-Mini/
 
 > **Created by:** Parveen Kumar (parveenengg)
 > **Vision:** A precursor to a full-stack SaaS platform for seamless digital documentation.
