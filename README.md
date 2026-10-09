@@ -1,5 +1,5 @@
 # SyncPad Mini — Project Documentation
-# link - https://syncpad-mini.parveenmakwana.in/
+# link - https://syncpad.parveenmakwana.in/
 
 > **Created by:** Parveen Kumar (parveenengg)
 > **Vision:** A precursor to a full-stack SaaS platform for seamless digital documentation.
